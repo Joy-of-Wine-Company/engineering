@@ -86,7 +86,7 @@
   .nines{font-size:11.5px; color:var(--muted); margin-left:8px}
   .track{
     position:relative; height:14px; border-radius:7px; background:var(--track);
-    background-image:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20%);
+    background-image:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 25%);
     overflow:hidden; border:1px solid var(--hair-2);
   }
   .track::after{
@@ -168,11 +168,11 @@
     <p class="dek"><b>Where it stands:</b> legality and tax-rate presence are at <b>five nines</b> (56/56 jurisdictions). <b>Verified accuracy is 98.43%</b> — the architectural ceiling of ZIP5 resolution — and the serve-time rooftop engine that resolves below ZIP5 is <b>live in enforce</b>. <b>Independent depth, at 15/36</b> local-depth states, is the binding constraint and the current frontier. The scorecard is next; everything after it is the evidence — definitions, background, and the unedited climb log.</p>
     <div class="card">
       <div class="axis" aria-hidden="true">
-        <span style="left:20%">90%</span>
-        <span style="left:40%">99%</span>
-        <span style="left:60%">99.9%</span>
-        <span style="left:80%">99.99%</span>
-        <span class="t" style="left:100%">99.999%</span>
+        <span style="left:0%; transform:none">0%</span>
+        <span style="left:25%">25%</span>
+        <span style="left:50%">50%</span>
+        <span style="left:75%">75%</span>
+        <span class="t" style="left:100%">100%</span>
       </div>
       <div class="rows">
         <div class="row">
@@ -194,21 +194,21 @@
             <div class="name">Verified accuracy <small>distinct local ZIPs serving a verified rate (not state-only)</small></div>
             <div class="figs"><span class="pct">98.43%</span><span class="nines">1.8 nines</span><span class="pill warn">390 ZIPs left</span></div>
           </div>
-          <div class="track"><div class="bar warn" style="--w:36.1%"></div></div>
+          <div class="track"><div class="bar warn" style="--w:98.43%"></div></div>
         </div>
         <div class="row">
           <div class="rhead">
             <div class="name">ZIP-exact granularity <small>distinct local-capable ZIP carries its own overlay · <b>72.5% raw</b> incl. jurisdictions barred from levying</small></div>
             <div class="figs"><span class="pct">95.7%</span><span class="nines">1.37 nines</span><span class="pill warn">honest</span></div>
           </div>
-          <div class="track"><div class="bar warn" style="--w:27.4%"></div></div>
+          <div class="track"><div class="bar warn" style="--w:95.7%"></div></div>
         </div>
         <div class="row">
           <div class="rhead">
             <div class="name">Independent depth <small>2nd government source corroborates (15 of 36 local-depth states)</small></div>
             <div class="figs"><span class="pct">41.7%</span><span class="nines">0.23 nines</span><span class="pill crit">frontier</span></div>
           </div>
-          <div class="track"><div class="bar crit" style="--w:4.7%"></div></div>
+          <div class="track"><div class="bar crit" style="--w:41.7%"></div></div>
         </div>
       </div>
     </div>
@@ -247,7 +247,7 @@
         <dt>Independent depth</dt>
         <dd>The binding constraint. Is our local rate <b>corroborated by a SECOND, independent government source</b> — a different agency (LA's LULSTB, AK's DCCED) or a different-product DOR table (OH's Finder, WI's county chart) — so two independent primaries must agree. Coverage says we <i>return</i> a rate; depth says we <i>know</i> it's right.</dd>
       </dl>
-      <p class="scale"><b>The scale:</b> each bar is plotted on a reliability-nines axis — 90% = 1 nine, 99% = 2, 99.9% = 3, 99.99% = 4, and the target <b>99.999% = five nines</b>. Sub-90% figures sit in the leftmost sliver, so a low bar (e.g. independent depth) reflects how far a linear percentage still is from the five-nines target.</p>
+      <p class="scale"><b>The scale:</b> each bar shows the plain percentage on a linear 0–100% axis, with the target line at <b>99.999% (five nines)</b>. The nines figure beside each percentage (nines = −log₁₀(1 − fraction)) tells the harder truth a linear bar hides: a bar that looks nearly full at 98.43% is still only 1.8 nines — the last fractions of a percent are where all the work lives.</p>
     </div>
     <div class="intro">
       <p><b>What this is.</b> Compliance Vine automates mandatory direct-to-consumer (DTC) wine shipping compliance — the legality rules, permits, volume caps, and state + local tax rates that determine whether an order may ship and what it owes. Wrong data here isn't a bug; it's a merchant's license. So we hold the rules engine's reference data to an infrastructure standard: we measure it the way SREs measure uptime, in <b>nines</b>.</p>
