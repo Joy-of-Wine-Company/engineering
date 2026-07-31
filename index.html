@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distance to Five Nines — how Compliance Vine builds compliance rate data</title>
+<meta name="description" content="An engineering memo on building five-nines-grade DTC wine shipping compliance data: legality rules, tax rates, verified accuracy, and independent corroboration across 56 US jurisdictions.">
+<style>
+  :root{
+    --ground:#f4f7f7; --panel:#ffffff; --hair:#dde5e6; --hair-2:#e9eeef;
+    --ink:#16201f; --muted:#5c6d72; --faint:#84979c;
+    --accent:#128a80; --accent-soft:#8fd8d0;
+    --good:#1f8f3b; --warn:#b3790f; --crit:#cf4034;
+    --track:#eef2f2; --grid:#d3dddd; --target:#128a80;
+    --shadow:0 1px 2px rgba(20,40,45,.06),0 8px 24px -12px rgba(20,40,45,.14);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0d1115; --panel:#151b21; --hair:#232c34; --hair-2:#1c242b;
+      --ink:#e7eef0; --muted:#93a4ab; --faint:#5f727a;
+      --accent:#26b6a8; --accent-soft:#1c4a49;
+      --good:#3fb950; --warn:#d2951f; --crit:#e5534b;
+      --track:#1a232a; --grid:#28333c; --target:#26b6a8;
+      --shadow:0 1px 0 rgba(0,0,0,.4),0 18px 40px -20px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0}
+  .wrap{
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    background:var(--ground); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    min-height:100vh; padding:clamp(20px,5vw,64px) clamp(16px,4vw,40px);
+  }
+  .sheet{max-width:900px; margin:0 auto}
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .eyebrow b{color:var(--accent); font-weight:600}
+  .dot{width:4px;height:4px;border-radius:50%;background:var(--faint)}
+  h1{
+    font-size:clamp(30px,6vw,46px); line-height:1.02; letter-spacing:-.02em;
+    margin:0 0 12px; font-weight:680; text-wrap:balance;
+  }
+  h1 .nn{font-family:var(--mono); color:var(--accent); font-weight:600; letter-spacing:-.01em}
+  .dek{max-width:60ch; color:var(--muted); font-size:15.5px; margin:0 0 22px}
+  .dek b{color:var(--ink); font-weight:600}
+  .intro{
+    background:var(--panel); border:1px solid var(--hair); border-left:3px solid var(--accent);
+    border-radius:12px; padding:18px 22px; margin:0 0 34px; color:var(--muted); font-size:14px;
+  }
+  .intro p{margin:0 0 10px}
+  .intro p:last-child{margin:0}
+  .intro b{color:var(--ink); font-weight:600}
+  .card{
+    background:var(--panel); border:1px solid var(--hair); border-radius:16px;
+    box-shadow:var(--shadow); padding:clamp(18px,3.5vw,30px);
+  }
+  .axis{
+    position:relative; height:16px; margin:2px 0 6px;
+    font-family:var(--mono); font-size:10.5px; color:var(--faint);
+  }
+  .axis span{position:absolute; transform:translateX(-50%); white-space:nowrap;
+    letter-spacing:.02em}
+  .axis span.t{color:var(--accent)}
+  .rows{display:flex; flex-direction:column; gap:20px; margin-top:4px}
+  .row{display:grid; grid-template-columns:1fr; gap:7px}
+  .rhead{display:flex; align-items:baseline; justify-content:space-between; gap:12px}
+  .name{font-weight:600; font-size:15px; letter-spacing:-.01em}
+  .name small{display:block; font-weight:400; color:var(--muted); font-size:12.5px;
+    letter-spacing:0; margin-top:1px}
+  .figs{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right;
+    white-space:nowrap; flex-shrink:0}
+  .pct{font-size:16px; font-weight:600}
+  .nines{font-size:11.5px; color:var(--muted); margin-left:8px}
+  .track{
+    position:relative; height:14px; border-radius:7px; background:var(--track);
+    background-image:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20%);
+    overflow:hidden; border:1px solid var(--hair-2);
+  }
+  .track::after{
+    content:""; position:absolute; right:0; top:-4px; bottom:-4px; width:2px;
+    background:var(--target); opacity:.85;
+  }
+  .bar{
+    position:absolute; left:0; top:0; bottom:0; border-radius:7px;
+    width:var(--w); transform-origin:left; animation:grow .9s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .bar.good{background:linear-gradient(90deg,var(--good),color-mix(in srgb,var(--good),#fff 18%))}
+  .bar.warn{background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn),#fff 16%))}
+  .bar.crit{background:linear-gradient(90deg,var(--crit),color-mix(in srgb,var(--crit),#fff 16%))}
+  @keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @media (prefers-reduced-motion:reduce){.bar{animation:none}}
+  .pill{
+    font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; padding:3px 8px; border-radius:999px; white-space:nowrap;
+  }
+  .pill.good{color:var(--good); background:color-mix(in srgb,var(--good),transparent 86%)}
+  .pill.warn{color:var(--warn); background:color-mix(in srgb,var(--warn),transparent 86%)}
+  .pill.crit{color:var(--crit); background:color-mix(in srgb,var(--crit),transparent 86%)}
+  .verdicts{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:22px}
+  @media(max-width:640px){.verdicts{grid-template-columns:1fr}}
+  .v{background:var(--panel); border:1px solid var(--hair); border-radius:14px;
+    padding:16px 18px; border-top:3px solid var(--tc)}
+  .v .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 8px}
+  .v .h{font-size:15px; font-weight:650; margin:0 0 5px; letter-spacing:-.01em}
+  .v .p{font-size:13px; color:var(--muted); margin:0}
+  .v .h .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+  .note{margin-top:20px; padding-top:18px; border-top:1px solid var(--hair);
+    color:var(--muted); font-size:13px; display:flex; flex-direction:column; gap:8px}
+  .note b{color:var(--ink); font-weight:600}
+  .note .terr{color:var(--ink)}
+  .defs{margin-top:22px}
+  .defs h2{font-size:12px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 14px; font-weight:600}
+  .defs dl{margin:0; display:grid; grid-template-columns:170px 1fr; gap:2px 18px}
+  @media(max-width:640px){.defs dl{grid-template-columns:1fr; gap:2px 0}}
+  .defs dt{font-weight:650; font-size:13.5px; color:var(--ink); letter-spacing:-.01em;
+    padding:11px 0 11px; border-top:1px solid var(--hair)}
+  .defs dd{margin:0; font-size:13px; color:var(--muted); line-height:1.5;
+    padding:11px 0 11px; border-top:1px solid var(--hair)}
+  @media(max-width:640px){.defs dt{border-top:1px solid var(--hair); padding-bottom:2px}
+    .defs dd{border-top:0; padding-top:2px}}
+  .defs dd b{color:var(--ink); font-weight:600}
+  .defs .scale{margin-top:14px; font-size:12.5px; color:var(--faint); line-height:1.5}
+  .defs .scale b{color:var(--muted); font-weight:600}
+  .foot{margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--faint);
+    letter-spacing:.02em}
+  .foot code{color:var(--muted)}
+  .log{margin-top:30px}
+  .log h2{font-size:12px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 4px; font-weight:600}
+  .log .sub{font-size:13px; color:var(--faint); margin:0 0 16px}
+  .logrow{display:grid; grid-template-columns:96px 1fr; gap:16px; padding:14px 0;
+    border-top:1px solid var(--hair); align-items:start}
+  .logrow:first-of-type{border-top:2px solid var(--accent-soft)}
+  .logmeta{font-family:var(--mono); font-size:11px; line-height:1.45}
+  .logdate{display:block; color:var(--ink); font-weight:600}
+  .logref{color:var(--accent)}
+  .logbody{font-size:13.5px; color:var(--muted); line-height:1.5}
+  .logbody b{color:var(--ink); font-weight:600}
+  .delta{display:inline-block; font-family:var(--mono); font-variant-numeric:tabular-nums;
+    font-size:11.5px; padding:1px 7px; border-radius:5px; white-space:nowrap; margin:2px 0}
+  .delta.up{color:var(--good); background:color-mix(in srgb,var(--good),transparent 88%)}
+  .delta.flat{color:var(--muted); background:var(--track)}
+  .colophon{margin-top:28px; padding-top:16px; border-top:1px solid var(--hair);
+    font-size:12.5px; color:var(--faint)}
+  .colophon b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sheet">
+    <p class="eyebrow"><b>Compliance Vine</b><span class="dot"></span>engineering memo<span class="dot"></span>rule data @ <b>77883c1</b><span class="dot"></span>2026-07-23</p>
+    <h1>Distance to <span class="nn">five&nbsp;nines</span></h1>
+    <p class="dek">How close each coverage &amp; depth dimension of our compliance rule data is to <b>99.999%</b> across the 56 US jurisdictions. Each bar is plotted on a <b>reliability-nines scale</b> — one gridline per nine (90 → 99.999%). <b>Legality + tax-rate presence at five nines</b> (56/56); <b>verified accuracy</b> is at its ZIP5 ceiling (98.43%) with a serve-time rooftop engine now <b>enforce-validated in production</b> below ZIP5; <b>independent depth</b> climbed to <b>15/36</b> — the current frontier.</p>
+    <div class="intro">
+      <p><b>What this is.</b> Compliance Vine automates mandatory direct-to-consumer (DTC) wine shipping compliance — the legality rules, permits, volume caps, and state + local tax rates that determine whether an order may ship and what it owes. Wrong data here isn't a bug; it's a merchant's license. So we hold the rules engine's reference data to an infrastructure standard: we measure it the way SREs measure uptime, in <b>nines</b>.</p>
+      <p><b>How to read it.</b> Five dimensions, hardest last: does every jurisdiction have a shipping rule, does it have a tax rate, is the served rate <i>verified</i> against the state's Department of Revenue (DOR), does every ZIP carry its own local overlay, and — the binding constraint — is each rate <b>corroborated by a second, independent government source</b>. The climb log below is the unedited engineering record: every gain, every denominator we corrected <i>downward</i> for honesty, and every lever we investigated and retired. The through-line is a data discipline: a rate never ships on one source's word, a fallback never over-collects, and a metric is never improved by redefining it upward.</p>
+      <p><b>Why it matters.</b> Legacy compliance vendors treat rate data as a licensed black box. We build and verify ours from primary government sources — statutes, DOR rate tables, Census geography, USPS — with the geocoding stack owned end-to-end. That is the moat: the data itself, and the verification machinery that keeps it honest.</p>
+    </div>
+    <div class="card">
+      <div class="axis" aria-hidden="true">
+        <span style="left:20%">90%</span>
+        <span style="left:40%">99%</span>
+        <span style="left:60%">99.9%</span>
+        <span style="left:80%">99.99%</span>
+        <span class="t" style="left:100%">99.999%</span>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <div class="rhead">
+            <div class="name">Legality <small>DTC rule present for every jurisdiction</small></div>
+            <div class="figs"><span class="pct">100.000%</span><span class="pill good">at target</span></div>
+          </div>
+          <div class="track"><div class="bar good" style="--w:100%"></div></div>
+        </div>
+        <div class="row">
+          <div class="rhead">
+            <div class="name">Tax-rate presence <small>jurisdiction carries a rate record</small></div>
+            <div class="figs"><span class="pct">100.000%</span><span class="pill good">at target</span></div>
+          </div>
+          <div class="track"><div class="bar good" style="--w:100%"></div></div>
+        </div>
+        <div class="row">
+          <div class="rhead">
+            <div class="name">Verified accuracy <small>distinct local ZIPs serving a verified rate (not state-only)</small></div>
+            <div class="figs"><span class="pct">98.43%</span><span class="nines">1.8 nines</span><span class="pill warn">390 ZIPs left</span></div>
+          </div>
+          <div class="track"><div class="bar warn" style="--w:36.1%"></div></div>
+        </div>
+        <div class="row">
+          <div class="rhead">
+            <div class="name">ZIP-exact granularity <small>distinct local-capable ZIP carries its own overlay · <b>72.5% raw</b> incl. jurisdictions barred from levying</small></div>
+            <div class="figs"><span class="pct">95.7%</span><span class="nines">1.37 nines</span><span class="pill warn">honest</span></div>
+          </div>
+          <div class="track"><div class="bar warn" style="--w:27.4%"></div></div>
+        </div>
+        <div class="row">
+          <div class="rhead">
+            <div class="name">Independent depth <small>2nd government source corroborates (15 of 36 local-depth states)</small></div>
+            <div class="figs"><span class="pct">41.7%</span><span class="nines">0.23 nines</span><span class="pill crit">frontier</span></div>
+          </div>
+          <div class="track"><div class="bar crit" style="--w:4.7%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="defs">
+      <h2>What each row measures</h2>
+      <dl>
+        <dt>Legality</dt>
+        <dd>Do we carry a <b>direct-to-consumer (DTC) shipping rule</b> for every jurisdiction — is wine shipping legal there, and under what case/volume limits, age check, and permit. This is the gate that runs <i>before</i> any tax question; an order to a prohibited state is blocked regardless of rate.</dd>
+        <dt>Tax-rate presence</dt>
+        <dd>Does every jurisdiction carry <b>at least one tax-rate record at all</b> — the baseline that we can return <i>a</i> rate for the destination. It says nothing about whether that rate is the finest or most-verified one; just that the jurisdiction isn't a hole.</dd>
+        <dt>Verified accuracy</dt>
+        <dd>Of the distinct local ZIPs, how many serve a <b>DOR-verified local rate</b> rather than the conservative state-only fallback. "Verified" = correct for ≥99% of a ZIP's residential addresses. The rest fall back to the safe state rate (which never over-collects) — that residue is genuinely address-level-split, and the <b>serve-time rooftop engine</b> (now live) resolves it per-address below the ZIP.</dd>
+        <dt>ZIP-exact granularity</dt>
+        <dd><b>Coverage breadth</b> — does each real ZIP carry its <i>own</i> local overlay, or just inherit the bare state rate. The <b>honest</b> figure counts only ZIPs that <i>can</i> carry one — excluding no-local-tax states, non-real placeholder codes, and counties a state's own statute bars from levying (PA grants the local tax to first-class cities and second-class counties only, i.e. Philadelphia and Allegheny — the other 65 counties are state-only as a matter of law). Counting any of them only understates. Orthogonal to accuracy: this asks "does a ZIP have a local row," not "is the rate right."</dd>
+        <dt>Independent depth</dt>
+        <dd>The binding constraint. Is our local rate <b>corroborated by a SECOND, independent government source</b> — a different agency (LA's LULSTB, AK's DCCED) or a different-product DOR table (OH's Finder, WI's county chart) — so two independent primaries must agree. Coverage says we <i>return</i> a rate; depth says we <i>know</i> it's right.</dd>
+      </dl>
+      <p class="scale"><b>The scale:</b> each bar is plotted on a reliability-nines axis — 90% = 1 nine, 99% = 2, 99.9% = 3, 99.99% = 4, and the target <b>99.999% = five nines</b>. Sub-90% figures sit in the leftmost sliver, so a low bar (e.g. independent depth) reflects how far a linear percentage still is from the five-nines target.</p>
+    </div>
+    <div class="verdicts">
+      <div class="v" style="--tc:var(--good)">
+        <p class="k">Done — 2 of 5</p>
+        <p class="h">Legality + tax presence — <span class="mono">5 nines</span></p>
+        <p class="p">56 / 56 carry a DTC rule; 56 / 56 now carry a tax-rate record (VI/AS/MP placeholders). Both at target.</p>
+      </div>
+      <div class="v" style="--tc:var(--warn)">
+        <p class="k">Climbing</p>
+        <p class="h">Verified accuracy — <span class="mono">98.43%</span> served</p>
+        <p class="p">HUD ZIP→tract corroboration + Census-block split-ZIP resolution across 4 states (AZ/MO/TX/NM) took served coverage 94%→97.4%. The accuracy arc that followed then made the number <i>honest</i> rather than higher: a split-ZIP <b>verified policy</b> now requires a served rate to be DOR-correct for <span class="mono">≥99%</span> of a ZIP's residential addresses, which reclassified genuinely address-level-split ZIPs (chiefly TX <span class="mono">−110</span>) out of <i>verified</i> and onto the ZIP+4 worklist — <b>0 rate changes</b>; they still serve the safe DOR base. From there the climb proceeded lever by lever: refreshed tract-corroboration promotions reclaimed <span class="mono">+97</span> single-jurisdiction ZIPs (NM 57 · TX 33 · MO 7) at <b>0 rate changes</b>; a broadened MO rooftop sweep against the state's official address-lookup promoted <span class="mono">+29</span> fallback ZIPs where two independent DOR derivations concur; the same method on NM's EDAC lookup added <span class="mono">+4</span>; mining the disagreement tail corrected <span class="mono">+12</span> ZIPs where the rooftop rate sits BELOW the DOR modal (serving the rooftop-confirmed lower value — more correct than both floor and modal). The <b>owned</b> free US-gov Census geocoder then resolved the split residue's real addresses through our Census-BAF block→place→rate core: <span class="mono">+34</span> ZIPs (AZ 12 · MO 22) confirmed single-jurisdiction, <span class="mono">+82</span> more in TX once a mirror-fallback address fetch unblocked its largest bucket, <span class="mono">+7</span> oracle-corroborated differ-tail promotions, and <span class="mono">+2</span> deeper-sampled AZ ZIPs. A place-crosswalk gate then flipped <span class="mono">+4</span> AZ and <span class="mono">+18</span> NM/MO all-CDP county-base ZIPs verified at the <b>unchanged</b> rate — every promotion cross-checked against the state's own published rate table. Net: <span class="mono">98.43%</span> served (after a USPS phantom-ZIP filter removed 100 invalid codes, 43 of them from the fallback); the <span class="mono">390</span> remaining fallback ZIPs (MO 201 · TX 137 · AZ 33 · NM 18 · SC 1) are the genuine residue — genuinely address-level-split ZIPs, oracle-abstains, and no-oracle over-collection candidates — all routed to the serve-time engine. That frontier is now <b>architecturally broken</b>: the serve-time rooftop engine (address → Census block → place → DOR rate, <b>all owned</b> — geocoder + data) shipped dark behind a feature flag, was ported producer-side, deployed to staging, and driven <b>dark → shadow → ENFORCE</b> — all three modes proven live through the owned Census geocoder. <b>AZ 85087</b> (Anthem) served the rooftop rate <span class="mono">6.3%</span> — the <b>+70 bps</b> county tax the ZIP5 was missing, <i>actually served</i>; the <b>per-merchant gate</b> is the safety — enforce serves the rooftop rate ONLY to explicitly-enabled merchants, everything else fails open to the ZIP5 (proven). Block-resolution readiness is <span class="mono">99.9%</span> across the 503 eligible ZIPs, with rooftop carrying a corrected rate for <span class="mono">70%</span> of blocks. The third-party geocoder was retired; the runtime geocoder is the free owned Census service — we are the infrastructure. The stored-ZIP5 residue is at its true ceiling (0 promotable); the resolvable residue is now serve-time-resolved, and enforce is live for enabled merchants — verified accuracy is complete below ZIP5.</p>
+      </div>
+      <div class="v" style="--tc:var(--crit)">
+        <p class="k">Aspirational</p>
+        <p class="h">Independent depth</p>
+        <p class="p"><span class="mono">15 of 36</span> local-depth states now rest on a real second source (LA just joined via the independent LULSTB rate API — the MO/NM geocode bar; before it MN, WI, VT, GA, WY, OH, NC). Past 41% — 21 to go, now a per-state geocode-oracle project.</p>
+      </div>
+    </div>
+    <div class="note">
+      <div class="terr"><b>Territories (AS · GU · MP · PR · VI):</b> legality ✅, local depth <b>0</b> — but correct by nature. Like the NOMAD states, they carry no local sub-jurisdiction sales tax (PR runs its own IVU regime). The real depth universe is <b>51 states + DC</b>; the 5 territories are legality-only by design, not a gap.</div>
+      <div><b>Coverage vs depth.</b> Coverage = do we return a correct rate for the destination (near-100% counting the conservative state / SST fallback). Depth = do we <i>know</i> it's right — verified, and corroborated by a second source. Depth is the binding constraint.</div>
+    </div>
+    <div class="log">
+      <h2>Climb log</h2>
+      <p class="sub">A snapshot every time we move the needle — newest first. Each entry is one dimension shift with its PR and metric delta. Nothing is edited out: retired levers, corrected denominators, and false alarms stay on the record.</p>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-24</span><span class="logref">stopped serving rates for ZIPs that don't exist</span></div>
+        <div class="logbody"><b>Verified accuracy moved for the first time since the ZIP5 ceiling — by removing ZIPs that aren't real.</b> <span class="delta up">verified accuracy 98.26% → <b>98.43%</b> · fallback 433 → 390 · 0 real ZIPs changed</span> · The USPS ZIP-reality audit (#230) proved 259 codes in the ZIP universe file are not postal destinations and dropped them from the <i>granularity</i> denominator — but the same phantom codes were still flowing through <b>county rate fan-out</b> into the served union: <b>57 verified rate rows on nonexistent ZIPs</b> exported to the downstream seed (GA 30447 @ 5%, FL 32215 @ 1.5% …). The universe file is regenerated from upstream TIGER data, so pruning it would be silently re-added; the filter instead lives at the serve/union chokepoint — one filter, catches all 57 regardless of source adapter. The ratio <i>improves</i> because <b>43 of the 100 removed phantom ZIPs were sitting in the fallback</b> — counted as "a ZIP we failed to verify" when they were never real (KS's entire 6-ZIP fallback was phantom, now gone). Same honesty class as the PA / no-local-tax / pseudo-ZIP denominator corrections: no real ZIP changed, nothing flipped to verified for a number. The correction also exposed two VA tests resting on the very "numeric + in-universe = real ZIP" heuristic the audit overturned — both now reconcile over genuine destinations only (5 VA codes were phantom). Follow-up surfaced: the reconcile <i>engine</i> still counts phantom ZIPs, so an ops reconciliation run would flag them — a small fix to teach it the same exclusion. PR #232.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-24</span><span class="logref">CA 92318 under-collection closed</span></div>
+        <div class="logbody"><b>Closed the one confirmed under-collection the USPS audit surfaced.</b> <span class="delta up">served-verified 24,505 → 24,506 · granularity numerator 22,850 → 22,851 (one ZIP; % rounds the same at 95.7%)</span> · <b>92318 BRYN MAWR</b> (San Bernardino) served state-only despite being a confirmed street-delivery ZIP. CA serves via a CDTFA lat/lng oracle keyed by the <b>ZCTA centroid</b> — and 92318 has none (the non-ZCTA class the #230 audit surfaced), so it was never queried. Fix generalizes rather than hardcodes: the CA backfill gains a <b>tract-centroid fallback</b> — query CDTFA at every tract the ZIP spans and serve only if <b>all tracts agree</b> (a disagreement is a real intra-ZIP split, deferred not averaged). Both of 92318's tracts return 7.75% → serve <b>0.5%</b> (the SB district add-on above CA's 7.25% base; the #230 note's "1.25%" conflated the Bradley-Burns already inside the base). The rest of the CA no-overlay class was <b>deliberately left</b>: zero-district ZIPs (HARMONY, WHISKEYTOWN, SACRAMENTO 95836 → 0.000000) would be metric-gaming per the PA rule, and the nonzero ones (91743, 93447, 95481, 95502) are still UNKNOWN in the delivery audit (likely PO-box-only) — bulk-serving them needs the street-delivery gate first, its own PR. PR #231.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-23</span><span class="logref">USPS says 259 of our "ZIPs" are not ZIPs</span></div>
+        <div class="logbody"><b>First use of the USPS Addresses v3 API as a source of TRUTH, not a lookup — and it found that part of the coverage gap was imaginary.</b> <span class="delta up">granularity honest 95.3% → <b>95.7%</b> (22,850 / 23,881) · raw 72.2% → 72.5% · <b>0 coverage change · 0 rate changes</b></span> · The ZIP universe carries real-looking 5-digit codes that USPS does not recognise: its <code>city-state</code> endpoint answers them <b>HTTP 400 <code>INVALID-ZIP CODE</code></b> — the postal service's own ZIP table saying the code is not a destination. Audited <b>526</b> codes (every numeric universe ZIP absent from the ZCTA centroid file, plus the 35 local-capable ZIPs with no overlay in CA/OH/WI/WA/CO): <b>259 invalid, 267 valid, 0 indeterminate</b> (GA 32 · WV 28 · AZ 20 · KY 19 · SD 16 · OH 10 · MO 10 …). <b>The existing heuristic could not have found these</b> — it treats non-ZCTA as suspect, but non-ZCTA conflates two different things: of the 35 probed in detail all were non-ZCTA, yet <b>13 are perfectly real ZIPs</b> (EUREKA 95502, WHISKEYTOWN 96095, GUASTI 91743 — PO-Box and rural ZIPs simply have no ZCTA). Only USPS separates "not a ZIP" from "a ZIP with no street addresses". <b>The reported coverage gap collapses from 10 states to 4:</b> <code>WV 614 · ID 271 · SD 16 · NE 8 · IL 7 · ND 6 · OK 6 · UT 3 · AR 2 · TN 1</code> → <code>WV 586 · ID 268 · OK 5 · UT 1</code> — <b>SD, NE, IL, ND, AR and TN had no real gap at all</b>. The numerator drops 100 too: that many invalid ZIPs were <i>carrying</i> a local row (57 serving a verified rate, GA 32 · IA 6 · AL 5 · VA 5 …) — harmless, since no order can ship to a nonexistent ZIP, but it was being counted as coverage. The 259 are deliberately <b>not</b> pruned from the universe file (it feeds county rate fan-out — a wider change). Also found: <b>92318 BRYN MAWR CA</b> is a confirmed street-delivery ZIP with <b>no local overlay</b> in a state whose local add-on is universal — a genuine under-collection, flagged for a targeted fix. Verdicts are asymmetric on purpose: one witness proves a ZIP real, a negative needs ≥3 resolved samples, and an upstream outage yields UNKNOWN — <b>a missing second source is never evidence of absence</b>. PR #230.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-23</span><span class="logref">PA denominator: 65 counties may not levy</span></div>
+        <div class="logbody"><b>ZIP-exact granularity was understated a third way — <b>95.3% honest</b>, not 89.6%.</b> <span class="delta up">honest 89.6% → <b>95.3%</b> (22,950 / 24,085) · <b>0 coverage change · 0 rate changes</b></span> · The denominator excluded no-local-tax <i>states</i> but applied no test one level down. <b>Pennsylvania is a local-tax state, so all 1,721 of its universe ZIPs counted as "should carry an overlay"</b> — and PA alone was <b>57% of the entire granularity gap</b>, every ZIP of it correctly bare. <b>61 Pa. Code § 60.16(a)(1)</b> grants the local Sales, Use and Hotel Occupancy Tax under exactly two statutes: cities of the first class (53 P.S. §§ 12720.501–509) and counties of the second class (16 P.S. §§ 6150-B – 6157-B). PA classes by population and <b>each class has exactly one member</b> — Philadelphia and Allegheny. Per PA DOR: <i>"By law, a 1 percent local tax is added to purchases made in Allegheny County, and 2 percent local tax is added to purchases made in Philadelphia."</i> The other <b>65 counties are 6% state-only as a matter of law</b>, not a gap in our data — and our committed PA rate file already matched exactly that shape (97 ZIPs @1% in Allegheny, 48 @2% in Philadelphia, nothing else). <b>The audit that mattered:</b> the fix also dropped <b>33 PA ZIPs that DID carry a local row</b> — which would be an <b>over-collection</b> (a county serving a tax it cannot impose). Checked before shipping: all 33 are <code>rate 0.000000</code>, store-derived invoice evidence that those counties charge no local tax. Correct data — but a 0% row encodes the <i>absence</i> of a local tax, so counting it as coverage inflated the numerator; dropping it from both sides is the honest treatment. A regression test now fails if any barred PA county ever serves a <b>nonzero</b> verified rate, so the denominator can never hide a real over-collection. The bar is a <b>legal</b> claim, so a second test pins the map to PA alone — adding a state requires its own citation. PR #229.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-23</span><span class="logref">LA +39 under-collections closed (over-risk parishes)</span></div>
+        <div class="logbody"><b>The granularity gap had never been audited by state — and the biggest genuine defect in it was Louisiana.</b> <span class="delta up">granularity honest 89.4% → <b>89.6%</b> (22,983 / 25,661) · 39 under-collection fixes · verified accuracy holds 98.26%</span> · Of the 2,717 local-capable ZIPs carrying no overlay, <b>PA is 1,543</b> (correct — only Allegheny + Philadelphia may levy) and <b>WV 614 / ID 271</b> are the known correctly-bare unincorporated territory. But <b>all 141 LA ZIPs with no local row sit inside the 14 "over-risk" parishes</b> that the LA build excludes wholesale — serving <b>LOCAL 0.00%</b> against a true parish base of <b>3.75%–5.99%</b>. That exclusion is a <b>parish-level gate on a ZIP-level risk</b>: a parish is dropped when <i>any</i> sub-parish domicile sits below its base, but most of its ZIPs contain no such domicile at all. Re-keyed the same verified parish base to the ZIPs provably clear of every one, behind five fail-closed gates — every below-base domicile must bind to a Census place via an <b>explicit domicile table</b> (a ward / road district / EDD, <i>or an unknown code</i>, poisons the whole parish), the ZIP must overlap none of them, and must straddle no parish whose minimum rate is lower. <b>39 ZIPs across 9 parishes</b> (Ouachita 7 · Acadia 7 · Beauregard 5 · Lafayette 5 · Morehouse 5 · St. Landry 4 · Concordia 3 · St. Martin 2 · Bossier 1). Independently corroborated at every ZIP centroid against the <b>LULSTB rooftop oracle</b> — <b>39/39 ≥ base, 0 refuted</b>, 32 to the basis point. <b>0 new rates asserted.</b> The near-miss worth keeping: an exploratory <b>fuzzy</b> matcher yielded 51 by binding Calcasieu's <code>"Ward I Only Moss Bluffs Gillis &amp; Topsy"</code> to <b><code>Moss Bluff CDP</code> alone</b>, silently under-excluding Gillis and Topsy — it would have shipped over-collecting ZIPs. The explicit table costs 12 ZIPs and buys the invariant; Calcasieu also returned <code>0.000000</code> at one centroid, proving one sample can't clear a ward. The 102 deferred ZIPs (Caddo 24 · St. Tammany 16 · Calcasieu 15 · Lafourche 11 · Washington 4) need multi-point sampling or real ward geometry. PR #227.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">MN +36 real overlays (SST-absent fills)</span></div>
+        <div class="logbody"><b>+36 MN ZIPs gained a real local overlay — SST-absent under-collections filled from the MN DOR ZIP chart.</b> <span class="delta up">granularity honest 89.3% → <b>89.4%</b> (22,944 / 25,661) · raw 71.9% → 72.1% · 36 under-collection fixes</span> · Complement to the MN independence flip (which shipped only the 396 ZIPs where the DOR rate == SST, 0 rate changes). These 36 are northern-MN / Iron-Range ZCTAs the DOR spreadsheet gives a <b>uniform nonzero</b> rate (every ZIP+4 range one rate) but which SST does <b>not carry at all</b> — served state-only today, a genuine under-collection. Added the DOR floor as an overlay: e.g. <span class="mono">55606</span> Cook County 6.875% → <b>8.375%</b> (+1.5%), <span class="mono">55703</span>/<span class="mono">55711</span> St. Louis transit → <b>7.375%</b> (+0.5%). Safe/conservative: UNIFORM ZIPs only (whole ZIP owes one rate, no straddle), SST-absent only (no conflict to override), effective from the file's quarter (before that they serve state-only exactly as today). The MN DOR spreadsheet is the state's own authoritative ZIP rate file. PR #221. Past this, granularity's gap is correctly-bare unincorporated territory + address-level splits — the honest coverage ceiling ~89–90% before the later denominator corrections.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">granularity: dropped pseudo-ZIPs</span></div>
+        <div class="logbody"><b>ZIP-exact granularity is understated a second way — <b>89.3% honest</b>, not 86.3%.</b> <span class="delta up">honest 86.3% → <b>89.3%</b> (22,908 / 25,661) · raw 69.6% → 71.9%</span> · The universe carries <b>1,099 pseudo-ZIP placeholders</b> (e.g. <code>542HH</code>, <code>546XX</code>) — not real USPS ZIPs / ZCTAs, so they can NEVER carry a local overlay. The adapters already drop them, but the inventory script was still counting them in the granularity denominator. <b>874 of them are in local-capable states</b>, dragging the honest figure down purely as an artifact. Restricting the granularity universe to REAL 5-digit numeric ZIPs (the same discipline that already excludes the no-local-tax states) lifts honest coverage to <b>89.3%</b> — a truer number, <b>0 coverage change</b> (no ZIP gained or lost an overlay; only the metric stopped double-counting fake ZIPs). Flagged as a deferred metric-lift in the 2026-07-06 denominator audit, now applied.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">LA → independent</span></div>
+        <div class="logbody"><b>LA → independent</b> via the LULSTB public rate API — the eighth flip, and the first past the "gate-flip exhausted" wall (this one uses the harder <b>MO/NM independent-geocode bar</b>, not a rate table). <span class="delta up">independent 14/36 → 15/36 · 38.9% → 41.7%</span> · A fan-out scouted every self-consistency + pending state for a FREE, zero-credential, scriptable rate oracle INDEPENDENT of the state DOR — and found exactly one beyond MO/NM: <b>Louisiana's LULSTB</b> (Louisiana Uniform Local Sales Tax Board, Act 274/2017), a SEPARATE agency from the LA Dept. of Revenue whose public portal resolves an address via a <b>rooftop geocode</b> — not derived from any DOR/Commission rate table, the same standing as MO's and NM's independent lookups. The corroboration audit sampled each parish's ZIP centroids, took LULSTB's <b>Balance-of-Parish floor</b>, and matched it against our parish base: <b>58 of 64 parishes corroborated</b> to the basis point. The 6 differs are documented — Beauregard is our data <i>ahead</i> of LULSTB's stale listing (a parish-wide 4.75→3.75% decrease we already carry), the rest LULSTB-higher city-sample artifacts. <b>0 rate changes</b> (the LA build is unchanged — the flip is classification + independent evidence); the 14 over-risk parishes stay on the safe floor, intra-parish city splits are the address-level frontier. Every other candidate was circular (the DOR's own tool) or paid — LA was the one genuine free independent oracle left. PR #219.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">rooftop ENFORCE live + validated in prod</span></div>
+        <div class="logbody"><b>Serve-time rooftop reached ENFORCE on staging and was validated in production — verified accuracy is now architecturally complete.</b> <span class="delta up">serve-time: dark → shadow → <b>ENFORCE</b> (all 3 modes proven in prod) · stored-ZIP5 98.26% (unchanged — at true ceiling) · resolvable residue now address-resolved</span> · The stored-ZIP5 verified-accuracy is at its <b>true architectural ceiling</b>: a full MO promote audit found <b>0 promotable fallback ZIPs</b> (62 genuinely split → address-level, 33 chain-sparse/too-thin, 45 already-correct, 8 disagree) — no ZIP5 lever moves 98.26%. The 433 residue is address-level by construction. <b>Completion = the serve-time engine at enforce</b>, which resolves the rooftop-eligible residue ZIPs to per-address rates. The operator flipped the mode to enforce; validated live: <b>AZ 85087</b> (Anthem) served <code>rooftop</code> <b>6.3%</b> (the +70 bps county tax the ZIP5 missed, <b>actually served</b>, not just would-serve); <b>MO 63005</b> served <code>rooftop</code> 8.738% (Chesterfield, divergence 0); and <b>merchant-disabled</b> correctly <b>failed open to the ZIP5</b> state rate — the per-merchant gate is the safety, so enforce serves the rooftop rate ONLY to explicitly-enabled merchants. Staging left armed in enforce (behaviorally ZIP5-for-all until a merchant opts in). The stored-ZIP5 metric stays 98.26% (that IS the ZIP5 measure); the serve-time dimension — deployed, all-modes-proven, per-merchant-safe — is the honest completion of verified accuracy below ZIP5. The per-merchant rollout was then completed — enforce is live and serves the rooftop-corrected rate to enabled merchants.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">OK measured &amp; held; clean frontier exhausted</span></div>
+        <div class="logbody"><b>OK measured and HELD below the honesty bar — the independence clean frontier is exhausted at 14/36.</b> <span class="delta flat">independent 14/36 · 38.9% (unchanged) · verified-accuracy 98.26% (unchanged)</span> · Oklahoma was the last remaining gate-flip candidate. Its OTC "OTCRates" address-range CSV (746,832 rows, county+city rate columns) is a genuine <b>distinct non-SST product</b> (not circular) — but OK is heavily address-split: only <b>222 of 746 ZIP5s (30%) are uniform</b> (all address ranges one rate), yielding <b>221 corroborated</b>. At <b>30%</b> that is below every shipped flip (VT 47% · MN ~50% · OH 75% · WI 76%) — flipping the binary "independent" metric would overclaim a state whose 70% address-split majority still rests on SST. Per this scorecard's honesty bar (which retired WV at 5%), OK is <b>documented viable-but-below-bar, not shipped</b>. A <b>six-way research fan-out</b> over all remaining coverage-gap states settles the frontier: <b>NE/ND/SD dead</b> (pure city-level — no county-uniform rate, no ZIP-keyed source), <b>TN/AR circular</b> (SST file only), <b>WV/ID non-tiling</b> (address-level), <b>UT DTC-prohibited</b>, <b>OK below-bar</b>. The gate-flip lever (county-uniform like WI/GA, or ZIP-keyed like OH/WY/MN) is <b>exhausted</b>. Past 14/36, independence needs the MO/NM independent-geocode bar per state — a rooftop-scale project, not a loop tick.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">MN → independent</span></div>
+        <div class="logbody"><b>MN → independent</b> via the MN DOR "Sales Tax Rate Spreadsheet — ZIP Code Search" — the seventh <code>coverage_gap → independent</code> flip, and "the next Ohio" (a ZIP-keyed DOR product, no crosswalk). <span class="delta up">independent 13/36 → 14/36 · 36.1% → 38.9%</span> · Found by a <b>six-way research fan-out</b> over the last coverage-gap states — which also proved NE/ND/SD are dead (pure city-level: SST serves 0% at ZIP5, so no county-uniform rate to corroborate) and re-confirmed TN/AR circular. MN's DOR taxpayer spreadsheet keys a <b>combined rate to each ZIP+4 range</b> (34,652 rows) — a DIFFERENT government product than the SST files (the OH/WY bar). Rolled ZIP+4 up to ZIP5, kept the 528 uniform ZIP5s (every range one rate), local = combined − 6.875% state, and emitted a ZIP <i>only</i> where that local equals the committed SST rate to the basis point → <b>396 ZIPs corroborated, 0 rate changes, 0 regressions</b> (0.5% county transit ×286, metro/city 1.0–2.15%, Minneapolis 2.15%). Like VT, a <b>partial flip</b>: the city-scattered multi-rate ZIP5s (Minneapolis/St Paul/Duluth/Rochester/St Cloud), 65 SST disagreements, and zero-local ZIPs stay on the SST spine (the address-level frontier, ~half the local footprint); the 37-ZIP metro overlay is orthogonal. PR #215.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">WI → independent</span></div>
+        <div class="logbody"><b>WI → independent</b> via the WI DOR county sales tax (the flat <b>0.5% county option</b>; Milwaukee 0.9%) — the sixth <code>coverage_gap → independent</code> flip, past the "prose-only" wall. <span class="delta up">independent 12/36 → 13/36 · 33.3% → 36.1%</span> · Wisconsin's only general local sales tax is the 0.5% county tax, adopted by 70 of 72 counties (WI DOR "State, County, and Stadium Tax Rate Chart" — a DIFFERENT government product than the SST Governing Board's files). <b>639 ZIPs corroborated</b> (610 @ 0.5% + 29 Milwaukee @ 0.9%), and the flip emits a ZIP <i>only</i> where its DOR county rate equals the committed SST rate to the basis point → <b>0 rate changes, 0 regressions</b>. The disagreements stay on the SST spine (the address-level frontier): county-boundary <b>straddle ZIPs</b> where SST serves the lowest-combined 0% (a ZIP touching Winnebago/Waukesha/Michigan/another state), the <b>City of Milwaukee</b> (+2% = 2.9% local, the only WI city tax), and the two no-tax counties Winnebago/Waukesha. Manitowoc (2025-01-01) and Racine (2025-04-01) county adoptions are date-gated for time-travel correctness. Verified against TN — <b>rejected as circular</b>: every downloadable TN rate file lives under the SST product, no distinct DOR table. Different-product corroboration (the KS/IA/NV/NC/OH/WY/GA/VT bar), NOT an independent-geocode derivation. PR #212.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-12</span><span class="logref">serve-time resolver brought producer-side</span></div>
+        <div class="logbody"><b>The serve-time rooftop resolver now lives in the rules-data engine itself — the producer can resolve <code>address → rate</code> end-to-end without the downstream consumer.</b> <span class="delta flat">verified-accuracy 98.26% (unchanged — serve-time is still DARK) · new producer-side serve path · consumer untouched</span> · The dark rooftop engine's resolution half (runtime geocode → block → place → rate → fail-open) had lived only in the downstream consumer service, whose go-live was blocked on a frozen cross-project build pipeline. That architecture is now <b>ported into the producer</b>, wrapped around the existing tested resolver brain: a runtime owned-Census geocoder client (precision-gated, fail-open), the orchestrator (eligibility gate → geocode → resolve → compose <code>state_base + local</code> → mode → <b>fail-open to ZIP5, never raises</b>), a shadow-audit logger, and a dark-by-default resolve endpoint. With the mode flag unset (<b>off</b>) the resolver never runs and the endpoint returns today's ZIP5/county rate, byte-identical to before; <b>56 new tests</b> lock the three invariants (fail-open on every miss incl. an injected resolver exception, additive-only enforce, dark-by-default), 99% coverage. This closes the last architectural dependency on the blocked consumer half: the producer can now run shadow → per-merchant enforce from its own mode flag. The stored-ZIP5 number is unchanged — serve-time remains a separate dimension.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-11</span><span class="logref">feed reachability proven; consumer half scoped out</span></div>
+        <div class="logbody"><b>Rooftop feed reachability was proven end-to-end (the producer ↔ consumer integration that had never been stood up) + the staging DB migrated — then the consumer half was scoped out and the temporary exposure rolled back.</b> <span class="delta flat">verified-accuracy 98.26% (unchanged) · serve-time still DARK · net durable change = an access-hardening fix</span> · The dark rooftop engine's go-live was gated on a cross-service link that prior plans flagged as "operator work." <b>Reachability proven, then rolled back:</b> the feed's access policy carried a latent over-broad grant — <b>removed it</b>, replaced it with least-privilege service-to-service auth, and verified the full path live (unauthenticated requests rejected, authenticated requests served the eligible-ZIP bundle). The exposure was then reverted as the consumer half was scoped out; the hardening fix was kept. <b>Staging DB migrated:</b> a fresh build passed install/lint/typecheck/<b>797 tests</b>/parity/build/migrate (both rooftop migrations applied, backward-compatible). <b>Then the deploy surfaced two pre-existing pipeline bugs</b> (neither rooftop-related) that had frozen both consumer services on an April image: an invalid deploy flag, and a config file omitted from the build context that made fresh containers exit on startup. A manual deploy reproduced the second safely (<b>0 traffic — no outage</b>, the prior revision kept serving). <b>Also validated pre-shadow:</b> the resolver tie-out vs the MO/NM oracle was clean — <b>0 confirmed resolver bugs</b> (the one apparent over-serve, MO 63138, is a legitimate St. Louis <i>city</i> cross-boundary resolution, exactly rooftop's job). And a ZIP5 side-audit reconfirmed the <b>ceiling is genuinely exhausted</b>: the 4–5 MO correction ZIPs and MO 63627 Bloomsdale are all either address-split (rooftop territory — 64055 shows 3 distinct rates at one lookup) or 0-local — <b>no defensible ZIP5 rate change remains</b>. The pipeline repair was documented and handed off with staged commands in the go-live runbook.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-10</span><span class="logref">WV lever retired (dead-end)</span></div>
+        <div class="logbody"><b>WV independence investigated and RETIRED — a proven dead-end, no metric moved.</b> <span class="delta flat">independent 12/36 · 33.3% (unchanged) · verified-accuracy 98.26% (unchanged)</span> · The plan's headline lever — "WV +643 granularity + independence flip, two-for-one like VT" — was <b>wrong on inspection</b>. WV already carries <b>163 SST-sourced municipal ZIPs at 1%</b>; the "+643 gap" is mostly correctly-<i>state-only</i> unincorporated WV (no municipal tax) → granularity gain ≈ 0. WV Tax Division publishes a municipality <b>roster</b> (101 munis, uniform +1%, destination-sourced), <b>not</b> a ZIP-level product, and WV munis do <b>not</b> tile — so the VT town-crosswalk trick fails. Both a land-area and a <b>block-population</b> Census crosswalk resolve only <b>8</b> clean ZIPs of 163; the ~155 straddles are <b>address-level</b> (the confound: ZCTA ≠ USPS delivery ZIP — ZCTA-24701 is ~15% Bluefield by land <i>and</i> population, yet SST's WV boundary file has 131 ZIP+4 records for 24701 all → Bluefield, because the ZIP <i>delivers</i> to Bluefield; the rural ZCTA blocks use other mail ZIPs). SST's ZIP+4 file is authoritative and already used; free Census geometry can't beat it. A tier flip on 8/163 is below this scorecard's honesty bar → <b>not shipped</b>. Audit confirmed <b>0 clean over/under-collections</b> in the 163 rows (37 "suspects" = Charleston PO boxes). <b>ID (+285) &amp; MN-remainder (+122) are the same non-tiling shape → same dead-end.</b> Deliverable = a retired false lever + corrected plan so no future pass re-drills it. PR #208.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">VT → independent</span></div>
+        <div class="logbody"><b>VT → independent</b> via the VT Dept. of Taxes "1% Local Option Sales Tax" municipality list × Census 2020 ZCTA↔county-subdivision — the fifth <code>coverage_gap → independent</code> flip, and the first past the "clean tabular DOR product" wall (VT's tax is town-level, resolved via a Census town crosswalk). <span class="delta up">independent 11/36 → 12/36 · 30.6% → 33.3%</span> · VT's only local sales tax is the flat 1% local option, levied by TOWN; VT towns tile the state, so a ZCTA ≥99% inside local-option towns serves verified 1% (a non-SST government authority; SST corroborates). The 26 town-straddle ZIPs stay on the SST spine (address-level frontier); Essex Junction has no Census-2020 cousub (incorporated 2022). Net rate change: <b>+20 under-collection fixes + 3 corroborations, 0 regressions</b> — local-option-town ZIPs SST served at 0% now serve 1% (SST recorded as a disagreement, never silently conformed); the 2026-07-01 wave (8 towns) is date-gated. PR #206.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">rooftop bundle gap closed</span></div>
+        <div class="logbody"><b>Rooftop bundle gap CLOSED — eligible 501 → 504 (a READINESS gain; the ZIP5 headline is unchanged).</b> <span class="delta flat">rooftop-eligible 501 → 504 · verified-accuracy 98.26% (unchanged — serve-time is dark)</span> · A re-audit of the 433-ZIP fallback residue found the "167 worklist gap" in the go-live runbook was stale prose predating the +101 crosswalk-mixed augment (which had already moved ~107 resolvable ZIPs into eligible, 216→323). True gap: <b>3</b> genuine-split DEFERs (<span class="mono">MO 63361 · NM 87053 · TX 77836</span>) the worklist lacked because it was built before the split-ZIP gap file was refreshed. Reseeded directly (pinned/idempotent) — NOT a split-policy re-run, which whole-file-overwrites the worklist and would drop rows (a large eligible regression). All 3 resolve to ≥2 per-address rates (real resolver); the bundle rebuild was purely additive (0 existing tracts changed). Residue now fully accounted: <b>326 eligible + 57 correct-exclusions + 50 non-ZCTA floor</b>. PR #205.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">granularity denominator honesty</span></div>
+        <div class="logbody"><b>ZIP-exact granularity is understated — honest figure is 86.3%, not 69.6%.</b> <span class="delta up">raw 69.6% (22,968 / 33,022) · honest <b>86.3%</b> (22,908 / 26,535, local-capable only)</span> · The raw denominator counts <b>6,487 universe ZIPs in states that CANNOT carry a local overlay</b> — states with a state sales tax but <i>no local</i> (MI · KY · IN · NJ · MA · MS · MD · ME · CT · RI) and states with <i>no sales tax at all</i> (OR · MT · NH · DE). A ZIP there correctly has no local row, so counting it against granularity only drags the number down. Excluding them, true ZIP-exact coverage is <b>86.3%</b>. The accuracy work correctly did NOT move granularity — granularity is <i>coverage breadth</i> (does a ZIP carry an overlay), orthogonal to <i>accuracy</i> (is the rate right); it climbs only when a bare ZIP gains an overlay (as the LA-parish/VA-locality/MN-metro rounds did). The genuine remaining lever = <b>1,413 ZIPs in coverage-gap states we have no local table for</b>: WV 643 · ID 285 · LA 141 · MN 122 · IL 34 · OK/WI/SD/AR/TN/NE/ND/UT/VT. The inventory now reports both figures + the per-state gap. VT is a two-for-one (independence flip + ~23 missing local-option towns, under-collecting) — scoped for the next pass.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">rooftop no_rate closure</span></div>
+        <div class="logbody"><b>Closed a serve-time over-collection the augment surfaced — MO rooftop <code>no_rate</code> 6540 → 0.</b> <span class="delta flat">whole-bundle no_rate 7025 → 485 · verified-accuracy 98.26% (unchanged — serve-time)</span> · A <code>no_rate</code> audit (resolve every eligible block; count places with a block but no rate row) found <b>~6540 MO blocks</b> — the unincorporated MAJORITY of 15 augmented ZIPs — resolving to <i>no rate</i> and failing open to a <b>city-rate ZIP5 base</b> (a latent over-collection: e.g. <span class="mono">65037</span>'s 652 unincorporated blocks were failing open to 4.0% Osage-Beach-area, true county base 2.0%). Two root causes, both in the MO DOR rate-table parse: <b>(1)</b> 5 counties (Camden, Scott, Shelby, Morgan, Marion) levy a county-wide special district, so their unincorporated rows carry a district suffix and the parser — which required the plain county code — recorded no county base → fixed with a conservative district-min floor (#201); <b>(2)</b> Ste. Genevieve is keyed by a legacy MO-DOR county number that differs from its FIPS code, so every row mapped to a non-existent county and dropped → fixed with an explicit remap (#202). Both fixes are <b>rooftop-only</b> (they feed only the rooftop bundle; the committed ZIP5 pipeline is byte-identical) — <b>zero ZIP5 blast radius</b>. Remaining 485 blocks = one genuinely-0-tax TX county (Glasscock, 1 ZIP) absent from the TX table. PRs #201 + #202.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">rooftop eligibility augment</span></div>
+        <div class="logbody"><b>+101 serve-time rooftop ZIPs — closed a split-detection seam (a READINESS gain; the ZIP5 headline is unchanged).</b> <span class="delta flat">rooftop-eligible 400 → 501 (MO +52 · TX +44 · AZ +6 · NM +5) · verified-accuracy 98.26% (unchanged — serve-time is dark)</span> · The dark serve-time rooftop engine was only wired to <b>216</b> of the 433 fallback residue; an audit found the eligible set is seeded from the split-ZIP gap's <code>distinct_rates &gt; 1</code>, which is the block-<i>majority</i> rate per tract and so is <b>blind to a minority incorporated sliver below tract resolution</b> — a ZIP 95% unincorporated + 5% city reads as one rate and never enters the worklist, yet the place crosswalk shows it straddles ≥2 jurisdictions. The augment adds exactly that seam to each state's worklist, then rebuilds the bundle. <b>All 107 augmented ZIPs resolve to MULTIPLE per-address rates</b> (resolver-proven, asserted per state) — most were serving a <i>minority city rate to a majority-unincorporated ZIP</i>, a latent over-collection serve-time rooftop now fixes per-address (e.g. AZ <span class="mono">85087</span> served 3.5% Phoenix, but 772/1128 blocks are unincorporated @ 0.7%). <b>Safe/additive</b>: rooftop fails open to the ZIP5/county rate on any miss, so no address is served worse than today, and no rate is sourced or changed (rows carry the existing DOR base). Excluded MO <span class="mono">63670</span> (no rooftop rate for Ste. Genevieve county's places → no coverage gained; flags a DOR-reconcile gap). Rooftop now covers all but the <b>50 non-ZCTA</b> floor (PO-box/point ZIPs) + a small residue. PRs #197 + #198.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">NM+MO all-CDP county-base</span></div>
+        <div class="logbody"><b>+18 verified ZIPs — the AZ all-CDP county-base lever generalized to NM + MO.</b> <span class="delta up">verified 98.19% → 98.26% · fallback 451 → 433 (NM 37 → 20 · MO 212 → 211)</span> · Same gate as the AZ pass, one script across every place-crosswalk state: a fallback ZIP that touches ONLY unincorporated CDPs (strict — ANY " city"/" town"/" village" suffix disqualifies) <i>and</i> already stores the DOR/TRD county-base modal serves that base uniformly for every address → <b>verified-flip at the UNCHANGED rate, 0 rate change</b>. <b>NM +17</b> (county-base GRT, locals 1.31–2.63%) · <b>MO +1</b> (<span class="mono">63036</span> Goose Creek Lake, 2.125%). Excluded, on purpose: <b>zero-local</b> all-CDP ZIPs — every TX all-CDP fallback ZIP (15) plus MO <span class="mono">65324</span>/<span class="mono">65786</span> — an unincorporated area with no county/parish local tax already serves the identical state-only rate, so flipping <i>verified</i> on a 0.0 local changes nothing (verified-accuracy is about KNOWING a nonzero local applies, not re-labelling the floor); and the <b>village straddle</b> MO <span class="mono">65759</span> (Kissee Mills CDP + Taneyville <i>village</i>) — a village is incorporated, so a committed county-rate flip would under-collect it. PR #194.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-09</span><span class="logref">AZ all-CDP county-base</span></div>
+        <div class="logbody"><b>+4 verified ZIPs — AZ all-CDP unincorporated ZIPs corroborated at the ADOR county base.</b> <span class="delta up">verified 98.17% → 98.19% · fallback 455 → 451 (AZ 57 → 53)</span> · The AZ "repeating pattern" is the TX <i>self-consistency</i> rooftop-promote — NOT the MO/NM independent-oracle lever: AZ has no free zero-credential independent rate source, and the authoritative state address tool is <b>login-gated</b> (confirmed live). So the gate is "prove the ZIP is uniform, then serve its own stored DOR base," and the usable authoritative source is ADOR's <i>public</i> monthly TPT Rate Table. Applied that gate to all 57 AZ fallback via the place crosswalk: <b>22</b> non-ZCTA (PO-box, no geography), <b>17</b> mixed (city+CDP straddle), <b>14</b> multi-city — all genuinely address-level-split, correctly the serve-time rooftop engine's territory. Only <b>4</b> (<span class="mono">85545</span> Roosevelt · <span class="mono">85637</span> Sonoita · <span class="mono">85645</span> Amado/Green Valley · <span class="mono">86320</span> Ash Fork) touch ONLY unincorporated CDPs <i>and</i> already store the county-base modal, so their rate is uniform across every address → <b>verified-flip at the UNCHANGED rate, 0 rate change</b>. Each stored base matched the ADOR retail county base to the basis point (Gila/Santa Cruz 6.60% · Pima 6.10% · Yavapai 6.35% combined). These fell through the existing AZ place lever because it gates on tract single-jurisdiction (a straddling ZCTA tract bleeds in a neighbour's rate); the <i>place crosswalk</i>, not the tracts, is the authority on incorporation. Guarded against the split trap: <span class="mono">85322</span> (Arlington CDP + Buckeye city + Gila Bend town = MIXED) and 5 tract-"single-jurisdiction" <i>differ</i> ZIPs a naïve residential-weighted read flagged clean (<span class="mono">85087</span> 49% Phoenix, <span class="mono">85718</span> 15% Tucson, …) were all <b>excluded</b> — a committed county-rate flip would under-collect their in-city addresses. AZ ZIP5 is now at its clean-promote ceiling; the 53 residue are the rooftop engine's. PR #193.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">TX unblocked + differ finish</span></div>
+        <div class="logbody"><b>+91 verified ZIPs — TX address-resolved (mirror-fallback address fetch) + the oracle-corroborated Census differ tail + a deeper AZ re-run.</b> <span class="delta up">verified 97.80% → 98.17% · fallback 546 → 455 (TX 224→142 · MO 218→212 · AZ 59→57 · NM 38→37)</span> · The two loose ends from the owned-Census climb, both closed with the <i>same</i> owned method (free US-gov Census Batch Geocoder → our Census-BAF block→place → our DOR rate), no vendor. <b>TX (+82):</b> the earlier "address fetch failed" was a single-endpoint transient — the committed sample builder pulled open addresses from one mirror with no fallback and fail-softed to 0 addresses on the heavy statewide query. A mirror-fallback pull returned 10.5k addresses across 125/146 residue ZIPs; <b>82</b> proved genuinely single-jurisdiction (≥2 spatially-spread samples resolve to ONE incorporated place at the stored 2% TX local cap, <b>0 rate change</b>) — a <i>uniformity</i> gate stricter than a bare match: 17 that matched on a single sample were <b>excluded</b> (one sample can't test uniformity, which <code>verified</code> asserts). TX was the largest fallback bucket (224) and is now address-resolved. <b>Differ tail (+7):</b> the 56 ZIPs where the Census place rate ≠ the stored modal were adjudicated against their independent oracle (MO / NM agreement-gated combined). The oracle backed the rooftop place for 13 — 6 were already fixed by earlier rounds; the remaining <b>7</b> (MO 6 · NM 1) serve <i>0 local</i> as state-only fallback today and their place-combined equals the oracle combined to the basis point, so each promotes to the corroborated local (two independent methods concur the ZIP is uniformly that place). The other 49 get no ZIP5 change and ride the serve-time engine: 27 MO where the oracle <i>also</i> abstains (genuinely split), 3 MO three-way disagreements, and 13 AZ that read as over-collections but have <b>no independent AZ oracle</b> to license a correction (flagged). Every genuinely-split / abstain / no-oracle residue ZIP is already eligible + resolvable in the committed rooftop bundle.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">owned Census climb</span></div>
+        <div class="logbody"><b>+34 verified ZIPs — owned Census geocoder resolves the residue; the paid vendor was retired.</b> <span class="delta up">verified 97.67% → 97.80% · fallback 580 → 546 (AZ 71→59 · MO 240→218)</span> · Strategy: we ARE the infrastructure — no dependence on an outside company. The block→place (Census BAF) + place→rate (DOR) data was always ours; geocoding was the only rented piece. Evaluated a commercial geocoder as a bootstrap oracle and <b>retired</b> it — the plan tier returns no rooftop precision (ZIP9 only, verified on a live call), so it offers nothing over the free US-gov Census geocoder we now run ourselves. The Census geocoder (an owned oracle) resolved the genuinely-split residue's real addresses → our Census-BAF block→place → our DOR modal; <b>53</b> ZIPs proved actually single-jurisdiction (≥2 agreeing samples → one place == stored DOR modal, <b>0 rate change</b>), <b>+34 net</b> new (19 already covered by earlier overlays). The AZ residue was previously blocked for lack of ANY oracle — the owned Census geocoder unblocked it. Deferred (honest): 56 where Census's rate DIFFERS from stored on thin interpolated samples (need deeper sampling), and TX (146 residue) whose address fetch failed this run. The runtime geocoder is now the owned Census service (vendor dropped from production wiring).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">Plan B — rooftop engine</span></div>
+        <div class="logbody"><b>Serve-time rooftop tax engine shipped (dark) — the ZIP5 ceiling is now breakable.</b> <span class="delta flat">verified 97.67% (unchanged, stored-ZIP5) · 9 PRs · 0 rate changes · ships dark</span> · The ZIP5 architecture caps verified accuracy at <span class="mono">~98.5%</span> — the remaining residue is <i>genuinely address-level split</i> (no ZIP5 rate can be correct for ≥99% of a ZIP's addresses). Plan B breaks that ceiling by resolving BELOW ZIP5 at serve time: <span class="mono">address → geocoder (→ Census block GEOID) → our Census-BAF block→place → DOR place rate</span> — no polygon math, all lookups, gated to the ~2% of orders in a genuinely-split ZIP, fail-open to today's ZIP5 base on any miss/timeout. Built across <b>9 PRs</b> (core/validation/feed + desktop/sync/geocoder/passthrough/hot-path/rollout), all merged behind a feature flag so today's behavior is byte-identical. Two rigorous hot-path reviews verified fail-open (rooftop can never reject into the decision path or change the verdict). The runtime geocoder is the <b>owned</b> free Census service. Go-live is an operator sequence, not code: deploy → live validation run → staging migrate + coverage gate → <code>shadow</code> (≥2wk divergence) → per-merchant <code>enforce</code>. This does not move the stored-ZIP5 number — it is a separate serve-time dimension (metric honesty) and the architectural path to five nines below ZIP5.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">MO rooftop correct</span></div>
+        <div class="logbody"><b>+12 verified ZIPs — MO disagreement tail, corrected below the modal.</b> <span class="delta up">verified 97.62% → 97.67% · fallback 592 → 580 (MO 252 → 240)</span> · Mined the <i>same</i> MO rooftop-lookup cache (no new network) for the 24 state-only ZIPs where the rooftop rate <i>disagrees</i> with the DOR modal. In <b>16</b> the rooftop sits BELOW the modal — the modal OVER-states — so overlaying the rooftop-confirmed lower value is strictly more correct than both the under-collecting state-only floor and the over-stating modal, and pre-empts a future over-collection. Promoted the <b>12</b> clearing a stricter single-source bar (≥3 agreeing samples at one code, or an unincorporated-floor code that can never over-collect); deferred the 4 thin 2-sample incorporated ones + the 8 rooftop-<i>above</i>-modal ZIPs (raising above the modal on clustered samples is the risky direction). 63052/64856 were also on the place-resolver's deferred decrease list — it independently wanted them lower too.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">NM rooftop promote</span></div>
+        <div class="logbody"><b>+4 verified ZIPs — NM EDAC rooftop, same method as MO.</b> <span class="delta up">verified 97.60% → 97.62% · fallback 596 → 592 (NM 42 → 38)</span> · Ported the rooftop-promote lever to NM's public EDAC gross-receipts lookup (broadened to 29 open-data brands incl. NM regionals for rural reach). Only <b>8 of NM's 42</b> state-only fallback ZIPs carry any chain address — they are chain-sparse <i>by nature</i> (that is why they are fallback), so this lever is near-exhausted for NM. The audit classifies each agreeing ZIP vs the TRD modal: <b>87020</b> Grants + <b>87532</b> Española corroborated (EDAC == modal, 6 samples each), <b>87004</b> + <b>87556</b> corrected-modal (EDAC below the modal → overlay the lower value, conservative). 87556 also cleared the place-resolver's deferred decrease list — both the EDAC rooftop and the place inference independently want it below the TRD modal, a mutual corroboration.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">MO rooftop promote</span></div>
+        <div class="logbody"><b>+29 verified ZIPs — broadened MO rooftop sweep.</b> <span class="delta up">verified 97.49% → 97.60% · fallback 625 → 596 (MO 281 → 252)</span> · Expanded the MO chain-address source to 29 open-data brands (adding MO regionals for rural reach), giving <b>148 of the 281</b> state-only MO fallback ZIPs ≥1 rooftop sample via the DOR-official address-rate lookup (538 successful geocodes, 63 split). Promoted the <b>29</b> where ≥2 spatially-spread ROOFTOP samples AGREE <i>and</i> the lookup's local (combined − 4.225%) equals the DOR rate-table modal to the basis point — two independent DOR derivations concur (same standard as the original 18). Each lifts the ZIP from the under-collecting state-only floor to the corroborated local — <b>29 rate corrections up, direction under→correct</b>. The other 119 abstained and stay on the safe floor: 62 split, 33 too-few-samples, 24 lookup-disagrees-DOR. 5 promotions also cleared the place-resolver's deferred decrease worklist (34 → 29).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-08</span><span class="logref">MO over-collect audit</span></div>
+        <div class="logbody"><b>2 live over-collections corrected via the rooftop oracle.</b> <span class="delta flat">verified 97.49% (unchanged) · 2 rates ↓, 0 coverage change</span> · An over-collection audit of served single-rate MO ZIPs vs the independent MO-DOR rooftop oracle surfaced two majority-<b>unincorporated</b> ZIPs served an incorporated-city rate: <b>63332</b> 7.45% → 5.95% (27/30 rooftop samples unincorporated) and <b>63051</b> 7.85% → 7.35% (17/21). Both corrected DOWN to the oracle-confirmed unincorporated floor — fail-safe (the floor is the ZIP's minimum rate, so it never over-collects any address; the incorporated minority is under-collected by its city increment). Residential+commercial re-sampling flipped 63332 from a 50/50 commercial-only read to 90% unincorporated, and cleared 63347 (96% city = served, correct). The tract "disagrees" flag that opened the hunt was a false alarm (13/13 oracle MATCH on the single-jurisdiction set); the real signal was the rooftop oracle. 63369/63377 deferred (only 4–5 open addresses each — too thin to correct).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-07</span><span class="logref">stale tract overlays</span></div>
+        <div class="logbody"><b>+97 verified ZIPs — stale corroboration overlays refreshed.</b> <span class="delta up">verified 97.09% → 97.49% · fallback 722 → 625</span> · Re-ran the committed, idempotent tract-corroboration promotions against the current split-ZIP gap file; the overlays had gone stale relative to a refreshed gap file, leaving 97 ZIPs that already pass the promote gate (single-jurisdiction + centroid error 0 bps vs the stored DOR modal) still serving state-only. Promoted <b>NM 57 · TX 33 · MO 7</b>. <b>0 rate changes</b> (rate = the unchanged DOR modal — only <code>verified</code> flips false→true), 0 removed, direction under→correct. The remaining 625 (MO 281 · TX 224 · AZ 71 · NM 42 · KS 6 · SC 1) are the genuine residue — split ZIPs, tract-vs-modal disagreements (a rate-correction worklist), and no-tract-data.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-07</span><span class="logref">GA indep</span></div>
+        <div class="logbody"><b>GA → independent</b> via the GA DOR "Sales and Use Tax Rate Chart" (General Rate Chart) — the fourth <code>coverage_gap → independent</code> flip, and the first county-curated flip since NC. <span class="delta up">independent 10/36 → 11/36 · 27.8% → 30.6%</span> · GA's 156 uniform counties now build from the DOR's own certified county rates (local = combined − 4% state; a non-SST government product); SST corroborates. The 3 Atlanta-MOST metro counties (Fulton/DeKalb/Clayton) carry within-county city splits and stay on the SST spine. Net rate change: <b>+107 fixes + 32 newly-covered ZIPs, 0 regressions</b> — GA's SST spine was a stale quarter behind, so many counties served at 2% now carry their true 3–4% county tax (e.g. Barrow 8%/4%-local, Rockdale 7%/3%-local, both corroborated by two commercial rate references). Past the 30% mark.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-07</span><span class="logref">WY indep</span></div>
+        <div class="logbody"><b>WY → independent</b> via the WY DOR Excise Tax Division "Sales and Use Tax Rates by Zip Code" chart — the third <code>coverage_gap → independent</code> flip. <span class="delta up">independent 9/36 → 10/36 · 25.0% → 27.8%</span> · WY's 191 unambiguous ZIPs now build from the DOR's own certified county-option rates (General + Specific + Economic Development + Resort options; a non-SST government product); SST corroborates. County-uniform except Teton (Jackson resort district); the 4 split ZIPs stay on the SST spine. Net rate change: <b>+15 fixes, 0 regressions</b> — stale SST-Q2 under-collections corrected to the current DOR rate (e.g. Hot Springs/Thermopolis 82443 state-only → 2% county, independently corroborated), several counties SST served state-only now carry their county tax.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-07</span><span class="logref">OH indep</span></div>
+        <div class="logbody"><b>OH → independent</b> via the Ohio DOT "County Rate Table by ZIP Code" (The Finder) — the second <code>coverage_gap → independent</code> flip. <span class="delta up">independent 8/36 → 9/36 · 22.2% → 25.0%</span> · OH's 1,041 unambiguous ZIPs now build from the Tax Commissioner's certified county+transit rates (a non-SST government product); SST corroborates 1,391/1,393 ZIPs. The 352 split ZIPs (chiefly COTA/TARTA partial-county transit overlaps) stay on the SST spine — the address-level frontier. Net rate change: <b>+2 fixes</b> (43201/43206 Columbus 1.25% → 2.25%, correcting a stale Franklin under-collection), 0 regressions. Different-product corroboration (the KS/IA/NV/NC bar), not an independent-geocode derivation.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">MN metro</span></div>
+        <div class="logbody"><b>Minneapolis/St-Paul metro — 37 under-collections fixed.</b> <span class="delta up">+37 ZIPs · granularity 69.3% → 69.5%</span> · 37 metro ZIPs served state-only but owe the region-wide Metro Area tax (+1.0%) + county/city — absent from SST entirely. Verified against MN DOR's Q3-2026 rate guide + a second reference (2 sources agree): core Minneapolis 2.15%, St Paul 3.0%, suburbs 1.25–1.65%. A real compliance fix (WV audited COMPLETE; VA was the hidden-1% extraction).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">VA build</span></div>
+        <div class="logbody"><b>Virginia made fully explicit</b> — every VA locality now carries its own overlay. <span class="delta up">granularity 67.6% → 69.3% · verified 97.02% → 97.09%</span> · Extracted VA's 1% statewide local out of the state base (5.3%→4.3% true state) into explicit per-ZIP overlays for all 134 localities (plain 1.0% / regional 1.7% / +school 2.0% / Historic Triangle 2.7%). <b>+593 VA ZIPs</b> now carry a local row; <b>combined rates unchanged</b> (0 diffs — a granularity/transparency refactor, not a rate change).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">LA build</span></div>
+        <div class="logbody"><b>Louisiana parish overlays — the biggest granularity lever.</b> <span class="delta up">granularity 66.3% → 67.6% · verified 96.97% → 97.02%</span> · <b>+398 LA ZIPs</b> now serve their parish-base rate — LA previously served state-only (an under-collection). Ships only the 50 parishes where the parish base is the floor (never over-collects); the 14 with a sub-base district are held state-only. Independence stays pending (LA is a non-SST member).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">metric-fix</span></div>
+        <div class="logbody"><b>ZIP-exact granularity corrected + a served phantom removed.</b> <span class="delta flat">72.1% → 66.3% (honest)</span> · The old 72.1% was hand-typed and mixed a per-(state,ZIP)-pair, USPS-all-ZIP numerator against a ZCTA-only denominator; it is now <b>computed</b> in the inventory (distinct in-universe ÷ universe). Also deleted a corrupted served ZIP (a pseudo-code that normalized into a phantom Mecklenburg duplicate) and added a normalizer guard. Not a coverage loss — a truer number.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">fan-out</span></div>
+        <div class="logbody"><b>Verified-accuracy signal-ZIP fan-out</b> — 17 flagged ZIPs verified against authoritative DOR + a second source (5 parallel research agents). <span class="delta flat">1 over-collection fixed · 0 coverage change</span> · AZ 85342 corrected 3.5% → 0.7% local (phantom "Morristown city" bad-ingest). <b>10/17 were false positives</b> — our served rates match the DOR; the rest are genuine address-level splits (the ZIP+4 frontier). Confirms verified accuracy is near its ZIP5 ceiling.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">#167</span></div>
+        <div class="logbody"><b>NC → independent</b> via NCDOR Gen&nbsp;562 — the first <code>coverage_gap → independent</code> flip. <span class="delta up">independent 7/36 → 8/36 · 22.2%</span> · served 23,078 → 23,080. Gen&nbsp;562 (a genuinely non-SST DOR source) corroborates the build for 99/100 counties; the lone Mecklenburg gap is SST-Q3 lagging the 2026-07-01 Charlotte transit tax (Gen&nbsp;562 + a prior fan-out both confirm 3.5%) — a documented, self-clearing exception. Template for the 15 remaining states.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-06</span><span class="logref">#166</span></div>
+        <div class="logbody"><b>Scorecard re-baselined to honest live truth.</b> <span class="delta flat">verified 97.39% → 96.96%</span> · The split-ZIP verified policy moved genuinely address-level-split ZIPs off <i>verified</i> onto the ZIP+4 track — <b>0 rate changes</b>, coverage relocated not lost. Also fixed an independence-row mislabel (17.5% / 7-of-40 → 19.4% / 7-of-36).</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-05</span><span class="logref">#152–#165</span></div>
+        <div class="logbody"><b>Honest split-ZIP re-baseline + rooftop recovery.</b> <span class="delta flat">verified ≈97.4% → 96.9%</span> · Redefined <i>verified</i> as DOR-correct for ≥99% of a ZIP's residential addresses; NAD rooftop points + population-weighted Census-block apportionment reclaimed the ZIP5-resolvable tail. <b>10 live over-collections</b> fixed, each fan-out-verified.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-07-04</span><span class="logref">#146–#151</span></div>
+        <div class="logbody"><b>Census-block split-ZIP resolution.</b> <span class="delta up">served 94% → 97.4%</span> · Blocks nest exactly within places (unlike straddling tracts), so block→place is authoritative — resolving split ZIPs the tract stage had deferred. A served-rate audit of the two highest-risk counties found and reverted <b>6 live over-collections</b>.</div>
+      </div>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">earlier</span><span class="logref">—</span></div>
+        <div class="logbody"><b>Legality + tax-rate presence reach five nines.</b> <span class="delta up">both → 100.000%</span> · All 56 jurisdictions carry a DTC rule and a tax-rate record. Two of five dimensions at target.</div>
+      </div>
+    </div>
+    <p class="foot">nines = −log₁₀(1 − fraction), capped at 5 · source: the five-nines inventory over the canonical local-rate export · 24,863 local ZIP5 · 24,238 serving · granularity 23,004/31,923 in-universe (computed, real 5-digit ZIPs)</p>
+    <div class="colophon"><b>Compliance Vine</b> · an engineering memo from the compliance-sync rules-data project · Joy of Wine Company · Christopher Anderson · July 2026. The underlying repository is private; this memo is the public record of the data-quality program. Internal identifiers, credentials, and infrastructure details have been redacted; every metric, date, and delta is as recorded.</div>
+  </div>
+</div>
+</body>
+</html>
