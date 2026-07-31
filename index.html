@@ -165,12 +165,7 @@
   <div class="sheet">
     <p class="eyebrow"><b>Compliance Vine</b><span class="dot"></span>engineering memo<span class="dot"></span>rule data @ <b>77883c1</b><span class="dot"></span>2026-07-23</p>
     <h1>Distance to <span class="nn">five&nbsp;nines</span></h1>
-    <p class="dek">How close each coverage &amp; depth dimension of our compliance rule data is to <b>99.999%</b> across the 56 US jurisdictions. Each bar is plotted on a <b>reliability-nines scale</b> — one gridline per nine (90 → 99.999%). <b>Legality + tax-rate presence at five nines</b> (56/56); <b>verified accuracy</b> is at its ZIP5 ceiling (98.43%) with a serve-time rooftop engine now <b>enforce-validated in production</b> below ZIP5; <b>independent depth</b> climbed to <b>15/36</b> — the current frontier.</p>
-    <div class="intro">
-      <p><b>What this is.</b> Compliance Vine automates mandatory direct-to-consumer (DTC) wine shipping compliance — the legality rules, permits, volume caps, and state + local tax rates that determine whether an order may ship and what it owes. Wrong data here isn't a bug; it's a merchant's license. So we hold the rules engine's reference data to an infrastructure standard: we measure it the way SREs measure uptime, in <b>nines</b>.</p>
-      <p><b>How to read it.</b> Five dimensions, hardest last: does every jurisdiction have a shipping rule, does it have a tax rate, is the served rate <i>verified</i> against the state's Department of Revenue (DOR), does every ZIP carry its own local overlay, and — the binding constraint — is each rate <b>corroborated by a second, independent government source</b>. The climb log below is the unedited engineering record: every gain, every denominator we corrected <i>downward</i> for honesty, and every lever we investigated and retired. The through-line is a data discipline: a rate never ships on one source's word, a fallback never over-collects, and a metric is never improved by redefining it upward.</p>
-      <p><b>Why it matters.</b> Legacy compliance vendors treat rate data as a licensed black box. We build and verify ours from primary government sources — statutes, DOR rate tables, Census geography, USPS — with the geocoding stack owned end-to-end. That is the moat: the data itself, and the verification machinery that keeps it honest.</p>
-    </div>
+    <p class="dek"><b>Where it stands:</b> legality and tax-rate presence are at <b>five nines</b> (56/56 jurisdictions). <b>Verified accuracy is 98.43%</b> — the architectural ceiling of ZIP5 resolution — and the serve-time rooftop engine that resolves below ZIP5 is <b>live in enforce</b>. <b>Independent depth, at 15/36</b> local-depth states, is the binding constraint and the current frontier. The scorecard is next; everything after it is the evidence — definitions, background, and the unedited climb log.</p>
     <div class="card">
       <div class="axis" aria-hidden="true">
         <span style="left:20%">90%</span>
@@ -217,22 +212,6 @@
         </div>
       </div>
     </div>
-    <div class="defs">
-      <h2>What each row measures</h2>
-      <dl>
-        <dt>Legality</dt>
-        <dd>Do we carry a <b>direct-to-consumer (DTC) shipping rule</b> for every jurisdiction — is wine shipping legal there, and under what case/volume limits, age check, and permit. This is the gate that runs <i>before</i> any tax question; an order to a prohibited state is blocked regardless of rate.</dd>
-        <dt>Tax-rate presence</dt>
-        <dd>Does every jurisdiction carry <b>at least one tax-rate record at all</b> — the baseline that we can return <i>a</i> rate for the destination. It says nothing about whether that rate is the finest or most-verified one; just that the jurisdiction isn't a hole.</dd>
-        <dt>Verified accuracy</dt>
-        <dd>Of the distinct local ZIPs, how many serve a <b>DOR-verified local rate</b> rather than the conservative state-only fallback. "Verified" = correct for ≥99% of a ZIP's residential addresses. The rest fall back to the safe state rate (which never over-collects) — that residue is genuinely address-level-split, and the <b>serve-time rooftop engine</b> (now live) resolves it per-address below the ZIP.</dd>
-        <dt>ZIP-exact granularity</dt>
-        <dd><b>Coverage breadth</b> — does each real ZIP carry its <i>own</i> local overlay, or just inherit the bare state rate. The <b>honest</b> figure counts only ZIPs that <i>can</i> carry one — excluding no-local-tax states, non-real placeholder codes, and counties a state's own statute bars from levying (PA grants the local tax to first-class cities and second-class counties only, i.e. Philadelphia and Allegheny — the other 65 counties are state-only as a matter of law). Counting any of them only understates. Orthogonal to accuracy: this asks "does a ZIP have a local row," not "is the rate right."</dd>
-        <dt>Independent depth</dt>
-        <dd>The binding constraint. Is our local rate <b>corroborated by a SECOND, independent government source</b> — a different agency (LA's LULSTB, AK's DCCED) or a different-product DOR table (OH's Finder, WI's county chart) — so two independent primaries must agree. Coverage says we <i>return</i> a rate; depth says we <i>know</i> it's right.</dd>
-      </dl>
-      <p class="scale"><b>The scale:</b> each bar is plotted on a reliability-nines axis — 90% = 1 nine, 99% = 2, 99.9% = 3, 99.99% = 4, and the target <b>99.999% = five nines</b>. Sub-90% figures sit in the leftmost sliver, so a low bar (e.g. independent depth) reflects how far a linear percentage still is from the five-nines target.</p>
-    </div>
     <div class="verdicts">
       <div class="v" style="--tc:var(--good)">
         <p class="k">Done — 2 of 5</p>
@@ -253,6 +232,27 @@
     <div class="note">
       <div class="terr"><b>Territories (AS · GU · MP · PR · VI):</b> legality ✅, local depth <b>0</b> — but correct by nature. Like the NOMAD states, they carry no local sub-jurisdiction sales tax (PR runs its own IVU regime). The real depth universe is <b>51 states + DC</b>; the 5 territories are legality-only by design, not a gap.</div>
       <div><b>Coverage vs depth.</b> Coverage = do we return a correct rate for the destination (near-100% counting the conservative state / SST fallback). Depth = do we <i>know</i> it's right — verified, and corroborated by a second source. Depth is the binding constraint.</div>
+    </div>
+    <div class="defs">
+      <h2>What each row measures</h2>
+      <dl>
+        <dt>Legality</dt>
+        <dd>Do we carry a <b>direct-to-consumer (DTC) shipping rule</b> for every jurisdiction — is wine shipping legal there, and under what case/volume limits, age check, and permit. This is the gate that runs <i>before</i> any tax question; an order to a prohibited state is blocked regardless of rate.</dd>
+        <dt>Tax-rate presence</dt>
+        <dd>Does every jurisdiction carry <b>at least one tax-rate record at all</b> — the baseline that we can return <i>a</i> rate for the destination. It says nothing about whether that rate is the finest or most-verified one; just that the jurisdiction isn't a hole.</dd>
+        <dt>Verified accuracy</dt>
+        <dd>Of the distinct local ZIPs, how many serve a <b>DOR-verified local rate</b> rather than the conservative state-only fallback. "Verified" = correct for ≥99% of a ZIP's residential addresses. The rest fall back to the safe state rate (which never over-collects) — that residue is genuinely address-level-split, and the <b>serve-time rooftop engine</b> (now live) resolves it per-address below the ZIP.</dd>
+        <dt>ZIP-exact granularity</dt>
+        <dd><b>Coverage breadth</b> — does each real ZIP carry its <i>own</i> local overlay, or just inherit the bare state rate. The <b>honest</b> figure counts only ZIPs that <i>can</i> carry one — excluding no-local-tax states, non-real placeholder codes, and counties a state's own statute bars from levying (PA grants the local tax to first-class cities and second-class counties only, i.e. Philadelphia and Allegheny — the other 65 counties are state-only as a matter of law). Counting any of them only understates. Orthogonal to accuracy: this asks "does a ZIP have a local row," not "is the rate right."</dd>
+        <dt>Independent depth</dt>
+        <dd>The binding constraint. Is our local rate <b>corroborated by a SECOND, independent government source</b> — a different agency (LA's LULSTB, AK's DCCED) or a different-product DOR table (OH's Finder, WI's county chart) — so two independent primaries must agree. Coverage says we <i>return</i> a rate; depth says we <i>know</i> it's right.</dd>
+      </dl>
+      <p class="scale"><b>The scale:</b> each bar is plotted on a reliability-nines axis — 90% = 1 nine, 99% = 2, 99.9% = 3, 99.99% = 4, and the target <b>99.999% = five nines</b>. Sub-90% figures sit in the leftmost sliver, so a low bar (e.g. independent depth) reflects how far a linear percentage still is from the five-nines target.</p>
+    </div>
+    <div class="intro">
+      <p><b>What this is.</b> Compliance Vine automates mandatory direct-to-consumer (DTC) wine shipping compliance — the legality rules, permits, volume caps, and state + local tax rates that determine whether an order may ship and what it owes. Wrong data here isn't a bug; it's a merchant's license. So we hold the rules engine's reference data to an infrastructure standard: we measure it the way SREs measure uptime, in <b>nines</b>.</p>
+      <p><b>How to read it.</b> Five dimensions, hardest last: does every jurisdiction have a shipping rule, does it have a tax rate, is the served rate <i>verified</i> against the state's Department of Revenue (DOR), does every ZIP carry its own local overlay, and — the binding constraint — is each rate <b>corroborated by a second, independent government source</b>. The climb log below is the unedited engineering record: every gain, every denominator we corrected <i>downward</i> for honesty, and every lever we investigated and retired. The through-line is a data discipline: a rate never ships on one source's word, a fallback never over-collects, and a metric is never improved by redefining it upward.</p>
+      <p><b>Why it matters.</b> Legacy compliance vendors treat rate data as a licensed black box. We build and verify ours from primary government sources — statutes, DOR rate tables, Census geography, USPS — with the geocoding stack owned end-to-end. That is the moat: the data itself, and the verification machinery that keeps it honest.</p>
     </div>
     <div class="log">
       <h2>Climb log</h2>
