@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Compliance Vine Platform — one intelligence engine behind every compliance decision</title>
+<meta name="description" content="Architecture overview: a machine-readable understanding of U.S. wine shipping law powering real-time checkout enforcement, filings, audit evidence, and grounded AI recommendations.">
+<style>
+  :root{
+    --ground:#f4f7f7; --panel:#ffffff; --hair:#dde5e6; --hair-2:#e9eeef;
+    --ink:#16201f; --muted:#5c6d72; --faint:#84979c;
+    --accent:#128a80; --accent-soft:#8fd8d0;
+    --good:#1f8f3b; --warn:#b3790f;
+    --track:#eef2f2;
+    --shadow:0 1px 2px rgba(20,40,45,.06),0 8px 24px -12px rgba(20,40,45,.14);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0d1115; --panel:#151b21; --hair:#232c34; --hair-2:#1c242b;
+      --ink:#e7eef0; --muted:#93a4ab; --faint:#5f727a;
+      --accent:#26b6a8; --accent-soft:#1c4a49;
+      --good:#3fb950; --warn:#d2951f;
+      --track:#1a232a;
+      --shadow:0 1px 0 rgba(0,0,0,.4),0 18px 40px -20px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0}
+  .wrap{
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    background:var(--ground); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh; padding:clamp(20px,5vw,64px) clamp(16px,4vw,40px);
+  }
+  .sheet{max-width:900px; margin:0 auto}
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .eyebrow b{color:var(--accent); font-weight:600}
+  .eyebrow a{color:var(--muted)}
+  .dot{width:4px;height:4px;border-radius:50%;background:var(--faint)}
+  h1{font-size:clamp(28px,5.5vw,42px); line-height:1.05; letter-spacing:-.02em;
+    margin:0 0 12px; font-weight:680; text-wrap:balance}
+  .dek{max-width:62ch; color:var(--muted); font-size:15.5px; margin:0 0 30px}
+  .dek b{color:var(--ink); font-weight:600}
+  h2{font-size:12px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:34px 0 14px; font-weight:600}
+  .card{background:var(--panel); border:1px solid var(--hair); border-radius:16px;
+    box-shadow:var(--shadow); padding:clamp(18px,3.5vw,28px)}
+  .elevator{font-size:17px; line-height:1.7; color:var(--ink); font-weight:500}
+  .elevator span{display:inline-block; background:var(--track); border:1px solid var(--hair-2);
+    border-radius:8px; padding:2px 10px; margin:3px 4px 3px 0}
+  .engine{border-left:3px solid var(--accent)}
+  .engine .t{font-weight:680; font-size:17px; margin:0 0 4px}
+  .engine .s{color:var(--muted); font-size:13.5px; margin:0 0 12px}
+  .qs{display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; list-style:none}
+  .qs li{font-family:var(--mono); font-size:12px; color:var(--muted);
+    border:1px solid var(--hair); border-radius:999px; padding:4px 11px; background:var(--track)}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  @media(max-width:680px){.grid3{grid-template-columns:1fr}}
+  .p{background:var(--panel); border:1px solid var(--hair); border-radius:14px; padding:16px 18px}
+  .p .k{font-size:15px; font-weight:650; margin:0 0 5px}
+  .p .d{font-size:13px; color:var(--muted); margin:0}
+  .flow{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:10px; align-items:stretch}
+  @media(max-width:760px){.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg); justify-self:center}}
+  .col h3{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--faint); margin:0 0 10px}
+  .col .i{border:1px solid var(--hair); border-radius:10px; padding:10px 12px; margin-bottom:8px;
+    background:var(--panel)}
+  .col .i b{display:block; font-size:13.5px}
+  .col .i span{font-size:12px; color:var(--muted)}
+  .arrow{align-self:center; color:var(--accent); font-size:22px; font-weight:700}
+  .adv{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
+  @media(max-width:640px){.adv{grid-template-columns:1fr}}
+  .adv .a{background:var(--panel); border:1px solid var(--hair); border-radius:14px; padding:16px 18px;
+    border-top:3px solid var(--accent)}
+  .adv .a .n{font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:600; margin:0 0 6px}
+  .adv .a .k{font-size:15px; font-weight:650; margin:0 0 5px}
+  .adv .a .d{font-size:13px; color:var(--muted); margin:0}
+  .promise{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
+  @media(max-width:640px){.promise{grid-template-columns:1fr}}
+  .promise .a{background:var(--panel); border:1px solid var(--hair); border-radius:14px; padding:16px 18px;
+    border-top:3px solid var(--good)}
+  .promise .k{font-size:15px; font-weight:650; margin:0 0 5px}
+  .promise .d{font-size:13px; color:var(--muted); margin:0}
+  .close{margin-top:30px; padding:18px 22px; background:var(--panel); border:1px solid var(--hair);
+    border-left:3px solid var(--accent); border-radius:12px; font-size:14.5px; color:var(--muted)}
+  .close b{color:var(--ink)}
+  .colophon{margin-top:26px; padding-top:16px; border-top:1px solid var(--hair);
+    font-size:12.5px; color:var(--faint)}
+  .colophon b{color:var(--muted)}
+  .colophon a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sheet">
+    <p class="eyebrow"><b>Compliance Vine</b><span class="dot"></span>platform architecture<span class="dot"></span>July 2026<span class="dot"></span><a href="./">← Distance to Five Nines</a></p>
+    <h1>One intelligence engine behind every compliance decision</h1>
+    <p class="dek">The companion piece to the <a href="./">Five Nines data memo</a>: what all that verified rule data <b>powers</b>. A living, machine-readable understanding of U.S. wine shipping law that every application on the platform can instantly ask questions of — one engine, many answers.</p>
+
+    <h2>The elevator version</h2>
+    <div class="card"><p class="elevator" style="margin:0">One platform. <span>Read every state's rules</span> <span>Approve shipments before checkout</span> <span>Calculate the tax</span> <span>Generate the filings</span> <span>Preserve the evidence</span> <span>Help customers discover their next bottle</span></p></div>
+
+    <h2>The brain — Compliance Intelligence Engine</h2>
+    <div class="card engine">
+      <p class="t">A living, machine-readable understanding of U.S. wine shipping law.</p>
+      <p class="s">Every application asks it the same questions; it answers once, and every product benefits.</p>
+      <ul class="qs">
+        <li>Can this bottle ship?</li>
+        <li>What tax applies?</li>
+        <li>Which license is required?</li>
+        <li>Which report is affected?</li>
+        <li>Has the rule changed?</li>
+        <li>Can this recommendation be shown?</li>
+      </ul>
+    </div>
+
+    <h2>The products it powers</h2>
+    <div class="grid3">
+      <div class="p"><p class="k">🚦 CV Live</p><p class="d">The bouncer at checkout. Yes / no / hold, in under a fifth of a second.</p></div>
+      <div class="p"><p class="k">🧾 Compliance Vine™</p><p class="d">The operational hub for winery compliance. Reviews shipments, calculates taxes, generates filings, tracks licenses, manages exemptions, preserves audit evidence.</p></div>
+      <div class="p"><p class="k">🍷 AI Sommelier</p><p class="d">Helps consumers discover wine. Every recommendation comes from a verified catalog and is checked by the same engine before it's shown.</p></div>
+    </div>
+
+    <h2>What goes in → the platform → what comes out</h2>
+    <div class="card">
+      <div class="flow">
+        <div class="col">
+          <h3>What goes in</h3>
+          <div class="i"><b>🛒 Orders &amp; sales</b><span>A winery's online shop — Shopify, Commerce7, Corksy — and its tasting room.</span></div>
+          <div class="i"><b>🍇 Production records</b><span>What was actually made — varieties, blends, alcohol content — from VinTrace, InnoVint.</span></div>
+          <div class="i"><b>🏛️ The rules</b><span>50+ state &amp; federal liquor and tax authorities.</span></div>
+          <div class="i"><b>📱 Oenophiles</b><span>Questions, bottle photos, browsing — from the sommelier app or a winery's site widget.</span></div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="col">
+          <h3>The platform</h3>
+          <div class="i"><b>🚪 Access Layer</b><span>The front door — every outside request comes through one guarded entrance.</span></div>
+          <div class="i"><b>🔌 VineLink</b><span>The translator — speaks each wine system's language, converts it all to one common format.</span></div>
+          <div class="i"><b>🗄️ Knowledge Pipeline</b><span>Reads regulator websites every day and proposes updates to the Rulebook — a human approves before they go live. (Its data-quality record is the <a href="./">Five Nines memo</a>.)</span></div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="col">
+          <h3>What comes out</h3>
+          <div class="i"><b>✅ A clear checkout answer</b><span>Ship it, don't ship it, or hold for review.</span></div>
+          <div class="i"><b>💰 The exact tax owed</b><span>Bottle by bottle, state by state.</span></div>
+          <div class="i"><b>📄 Ready-to-file state forms</b><span>&nbsp;</span></div>
+          <div class="i"><b>🔒 A tamper-evident digital trail</b><span>&nbsp;</span></div>
+          <div class="i"><b>🔔 Same-day rule-change alerts</b><span>No one has to remember to check.</span></div>
+          <div class="i"><b>🥂 A personalized recommendation</b><span>Only wine that can legally ship to that address.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h2>The four platform advantages</h2>
+    <div class="adv">
+      <div class="a"><p class="n">01</p><p class="k">One Rulebook</p><p class="d">Every product uses exactly the same compliance brain. One source of truth, everywhere.</p></div>
+      <div class="a"><p class="n">02</p><p class="k">Self-Updating Rules</p><p class="d">Software watches regulator websites every day, proposes changes automatically, and a human approves them before they go live.</p></div>
+      <div class="a"><p class="n">03</p><p class="k">Permanent Evidence</p><p class="d">Every compliance decision is recorded the moment it happens in a tamper-evident audit trail.</p></div>
+      <div class="a"><p class="n">04</p><p class="k">Grounded AI</p><p class="d">Every recommendation comes from a verified catalog of 451,000 wines and passes through the same compliance engine before it's shown.</p></div>
+    </div>
+
+    <h2>Our promise</h2>
+    <div class="promise">
+      <div class="a"><p class="k">Never block a sale.</p><p class="d">If our services are unavailable, the order proceeds and is automatically flagged for compliance review.</p></div>
+      <div class="a"><p class="k">Your customer data stays yours.</p><p class="d">Sensitive information is encrypted before it leaves the winery. We never possess the keys needed to read it.</p></div>
+    </div>
+
+    <div class="close">Every application on the platform asks the same question: <b>"Can this bottle legally ship here?"</b> The Compliance Intelligence Engine answers it once, and every product benefits.</div>
+
+    <div class="colophon"><b>Joy of Wine Company Inc.</b> d/b/a Compliance Vine · prepared by Christopher L. Anderson, CEO &amp; Founder · July 2026 · companion to <a href="./">Distance to Five Nines</a></div>
+  </div>
+</div>
+</body>
+</html>
