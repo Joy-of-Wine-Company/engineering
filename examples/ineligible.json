@@ -1,0 +1,30 @@
+{
+  "$comment": "Destination prohibits DTC entirely. Terminal: next_actions is empty because nothing the buyer does changes it.",
+  "case": "ineligible",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/presale/verify",
+    "headers": { "Authorization": "Bearer cvl_sk_REDACTED", "Content-Type": "application/json" },
+    "body": {
+      "seller_ref": "sel_9fbc2a41",
+      "destination": { "country": "US", "state": "UT", "postal_code": "84101" },
+      "items": [{ "sku": "JOW-CAB-2021", "quantity": 2 }],
+      "age_verification_token": "avt_opaque_value"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "decision_id": "dec_01J8XQ5P8T2KD",
+      "status": "ineligible",
+      "reason_codes": ["destination_dtc_prohibited"],
+      "next_actions": [],
+      "checks_performed": ["state_allowed", "license_valid", "age_verified", "volume_limit", "carrier_allowed", "dry_county"],
+      "rule_version": { "destination": "UT", "version": "2026-07-01" },
+      "checked_at": "2026-08-04T14:24:11Z",
+      "expires_at": "2026-08-04T14:39:11Z"
+    }
+  },
+  "agent_may_say": "This destination doesn't permit direct-to-consumer wine shipping.",
+  "agent_must_not_say": "This seller can't ship there. — here the destination IS the reason, so a seller-scoped framing understates it. Contrast with a seller_* reason code, where the opposite rule applies."
+}

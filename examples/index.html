@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-sale verification — worked examples</title>
+<meta name="description" content="Five worked request/response pairs for the Compliance Vine pre-sale verification contract: eligible, ineligible, age-required, review, and timeout.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Compliance Vine Engineering">
+<meta property="og:title" content="Pre-sale verification — worked examples">
+<meta property="og:url" content="https://joy-of-wine-company.github.io/engineering/examples/">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23128a80'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='%23fff' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ground:#f4f7f7; --panel:#ffffff; --hair:#dde5e6; --hair-2:#e9eeef;
+    --ink:#16201f; --muted:#5c6d72; --faint:#84979c;
+    --accent:#128a80; --track:#eef2f2;
+    --shadow:0 1px 2px rgba(20,40,45,.06),0 8px 24px -12px rgba(20,40,45,.14);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0d1115; --panel:#151b21; --hair:#232c34; --hair-2:#1c242b;
+      --ink:#e7eef0; --muted:#93a4ab; --faint:#5f727a;
+      --accent:#26b6a8; --track:#1a232a;
+      --shadow:0 1px 0 rgba(0,0,0,.4),0 18px 40px -20px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0}
+  .wrap{
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    background:var(--ground); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh; padding:clamp(20px,5vw,64px) clamp(16px,4vw,40px);
+  }
+  .sheet{max-width:900px; margin:0 auto}
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .eyebrow b{color:var(--accent); font-weight:600}
+  .eyebrow a{color:var(--muted)}
+  .dot{width:4px;height:4px;border-radius:50%;background:var(--faint)}
+  h1{font-size:clamp(26px,5vw,38px); line-height:1.06; letter-spacing:-.02em;
+    margin:0 0 12px; font-weight:680}
+  .dek{max-width:62ch; color:var(--muted); font-size:15.5px; margin:0 0 28px}
+  .dek b{color:var(--ink); font-weight:600}
+  a{color:var(--accent)}
+  .row{display:block; background:var(--panel); border:1px solid var(--hair);
+    border-radius:14px; padding:16px 18px; margin-bottom:10px; text-decoration:none;
+    box-shadow:var(--shadow)}
+  .row:hover{border-color:var(--accent)}
+  .row .k{font-family:var(--mono); font-size:13px; color:var(--accent); font-weight:600; margin:0 0 5px}
+  .row .s{font-size:15px; font-weight:650; color:var(--ink); margin:0 0 5px}
+  .row .d{font-size:13.5px; color:var(--muted); margin:0}
+  .note{margin-top:22px; padding:16px 20px; background:var(--panel); border:1px solid var(--hair);
+    border-left:3px solid var(--accent); border-radius:12px; font-size:14px; color:var(--muted)}
+  .note b{color:var(--ink)}
+  code{font-family:var(--mono); font-size:12.5px; background:var(--track);
+    border:1px solid var(--hair-2); border-radius:6px; padding:1px 6px; color:var(--ink)}
+  .colophon{margin-top:26px; padding-top:16px; border-top:1px solid var(--hair);
+    font-size:12.5px; color:var(--faint)}
+  .colophon a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sheet">
+    <p class="eyebrow"><b>Compliance Vine</b><span class="dot"></span>worked examples<span class="dot"></span><a href="../agentic-commerce.html">← the memo</a><span class="dot"></span><a href="../docs/presale-verification.md">the contract</a></p>
+    <h1>Pre-sale verification — worked examples</h1>
+    <p class="dek">Five request/response pairs covering every status the contract can return. Each file also records <b>what an agent may say</b> to a shopper and what it must not — because the response being correct is only half of getting this right.</p>
+
+    <a class="row" href="eligible.json">
+      <p class="k">eligible</p>
+      <p class="s">Every check passed</p>
+      <p class="d">Licensed seller, open destination, age verified, under the volume limit. Still a snapshot — <code>expires_at</code> is binding and checkout re-verifies.</p>
+    </a>
+    <a class="row" href="ineligible.json">
+      <p class="k">ineligible</p>
+      <p class="s">Destination prohibits DTC entirely</p>
+      <p class="d">Terminal. <code>next_actions</code> is empty because nothing the buyer does changes the answer.</p>
+    </a>
+    <a class="row" href="age-required.json">
+      <p class="k">requires_buyer_input</p>
+      <p class="s">Age verification missing — the first inversion</p>
+      <p class="d">The enforcement API treats this as a hard block because an order already exists by then. Pre-sale is earlier, where the honest answer is “not yet”.</p>
+    </a>
+    <a class="row" href="review.json">
+      <p class="k">requires_merchant_review</p>
+      <p class="s">Referred to a human at the merchant</p>
+      <p class="d">Reserved. No rule produces a <code>soft_block</code> today, so this case is specified but not yet reachable in production.</p>
+    </a>
+    <a class="row" href="timeout.json">
+      <p class="k">retry</p>
+      <p class="s">No decision was reached — the second inversion</p>
+      <p class="d">Note <code>checks_performed</code> is <b>empty</b>. Nothing was evaluated. The enforcement API fails open here because a human reviews the order; an agent has no such backstop.</p>
+    </a>
+
+    <div class="note"><b>Reading these.</b> Branch on <code>status</code> and nothing else. <code>reason_codes</code> are for logging and optional detail; <code>next_actions</code> tell you what to do next; messages are not stable and should never be parsed. The prefix on a reason code carries meaning — <code>seller_*</code> never generalises to other sellers, <code>destination_*</code> does. See <a href="../docs/verdicts-and-reason-codes.md">verdicts and reason codes</a>.</div>
+
+    <div class="colophon"><b>Compliance Vine</b> · Joy of Wine Company · August 2026 · <a href="../agentic-commerce.html">Before an AI recommends the bottle</a> · <a href="../docs/presale-verification.md">the contract</a> · <a href="../docs/authentication.md">authentication</a> · <a href="../openapi/cv-live-presale-v1.json">OpenAPI</a> · <a href="../">engineering index</a>. The endpoint these describe is not yet deployed.</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "$comment": "Reserved. Emitted for a soft_block violation. No rule produces soft_block today, so this case is specified but not yet reachable in production.",
+  "case": "review",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/presale/verify",
+    "headers": { "Authorization": "Bearer cvl_sk_REDACTED", "Content-Type": "application/json" },
+    "body": {
+      "seller_ref": "sel_9fbc2a41",
+      "destination": { "country": "US", "state": "VA", "postal_code": "23454" },
+      "items": [{ "sku": "JOW-CAB-2021", "quantity": 2 }],
+      "age_verification_token": "avt_opaque_value"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "decision_id": "dec_01J8XQ9W2A4TG",
+      "status": "requires_merchant_review",
+      "reason_codes": ["manual_review_required"],
+      "next_actions": [
+        { "type": "contact_merchant", "description": "The seller needs to review this order before it can proceed." }
+      ],
+      "checks_performed": ["state_allowed", "license_valid", "age_verified", "volume_limit", "carrier_allowed", "dry_county"],
+      "rule_version": { "destination": "VA", "version": "2026-07-01" },
+      "checked_at": "2026-08-04T14:26:55Z",
+      "expires_at": "2026-08-04T14:41:55Z"
+    }
+  },
+  "agent_may_say": "The seller needs to review this before it can proceed.",
+  "agent_must_not_say": "This is approved. / This is rejected. — neither has happened."
+}

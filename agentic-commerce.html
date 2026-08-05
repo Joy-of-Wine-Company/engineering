@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Before an AI recommends the bottle — pre-sale compliance for agentic commerce</title>
+<meta name="description" content="Why a shopping agent cannot infer whether a wine recommendation is lawful to fulfill, and the read-only pre-sale contract we published to answer it: five statuses, stable reason codes, and an outage that never returns eligible.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Compliance Vine Engineering">
+<meta property="og:title" content="Before an AI recommends the bottle — pre-sale compliance for agentic commerce">
+<meta property="og:description" content="An engineering memo on designing a compliance answer for machines: what inverts when there is no human backstop, and why we published the contract before building the endpoint.">
+<meta property="og:url" content="https://joy-of-wine-company.github.io/engineering/agentic-commerce.html">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23128a80'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='%23fff' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ground:#f4f7f7; --panel:#ffffff; --hair:#dde5e6; --hair-2:#e9eeef;
+    --ink:#16201f; --muted:#5c6d72; --faint:#84979c;
+    --accent:#128a80; --accent-soft:#8fd8d0;
+    --good:#1f8f3b; --warn:#b3790f; --bad:#b3352f;
+    --track:#eef2f2;
+    --shadow:0 1px 2px rgba(20,40,45,.06),0 8px 24px -12px rgba(20,40,45,.14);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0d1115; --panel:#151b21; --hair:#232c34; --hair-2:#1c242b;
+      --ink:#e7eef0; --muted:#93a4ab; --faint:#5f727a;
+      --accent:#26b6a8; --accent-soft:#1c4a49;
+      --good:#3fb950; --warn:#d2951f; --bad:#e0554d;
+      --track:#1a232a;
+      --shadow:0 1px 0 rgba(0,0,0,.4),0 18px 40px -20px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0}
+  .wrap{
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    background:var(--ground); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh; padding:clamp(20px,5vw,64px) clamp(16px,4vw,40px);
+  }
+  .sheet{max-width:900px; margin:0 auto}
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .eyebrow b{color:var(--accent); font-weight:600}
+  .eyebrow a{color:var(--muted)}
+  .dot{width:4px;height:4px;border-radius:50%;background:var(--faint)}
+  h1{font-size:clamp(28px,5.5vw,42px); line-height:1.05; letter-spacing:-.02em;
+    margin:0 0 12px; font-weight:680; text-wrap:balance}
+  .dek{max-width:62ch; color:var(--muted); font-size:15.5px; margin:0 0 30px}
+  .dek b{color:var(--ink); font-weight:600}
+  h2{font-size:12px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:34px 0 14px; font-weight:600}
+  p{margin:0 0 12px}
+  .card{background:var(--panel); border:1px solid var(--hair); border-radius:16px;
+    box-shadow:var(--shadow); padding:clamp(18px,3.5vw,28px)}
+  .lede{font-size:16.5px; line-height:1.7; color:var(--ink)}
+  .lede b{font-weight:650}
+  .why{border-left:3px solid var(--accent)}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  @media(max-width:680px){.grid3{grid-template-columns:1fr}}
+  .p{background:var(--panel); border:1px solid var(--hair); border-radius:14px; padding:16px 18px}
+  .p .k{font-size:15px; font-weight:650; margin:0 0 5px}
+  .p .d{font-size:13px; color:var(--muted); margin:0}
+  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch;
+    border:1px solid var(--hair); border-radius:14px; background:var(--panel)}
+  table{border-collapse:collapse; width:100%; min-width:640px; font-size:13.5px}
+  th{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--faint); font-weight:600; text-align:left; padding:12px 14px;
+    border-bottom:1px solid var(--hair); white-space:nowrap}
+  td{padding:12px 14px; border-bottom:1px solid var(--hair-2); vertical-align:top; color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  td.s{color:var(--ink); font-weight:600}
+  code{font-family:var(--mono); font-size:12.5px; background:var(--track);
+    border:1px solid var(--hair-2); border-radius:6px; padding:1px 6px; color:var(--ink);
+    white-space:nowrap}
+  .inv{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
+  @media(max-width:640px){.inv{grid-template-columns:1fr}}
+  .inv .a{background:var(--panel); border:1px solid var(--hair); border-radius:14px; padding:16px 18px;
+    border-top:3px solid var(--accent)}
+  .inv .a .n{font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:600; margin:0 0 6px}
+  .inv .a .k{font-size:15px; font-weight:650; margin:0 0 5px}
+  .inv .a .d{font-size:13px; color:var(--muted); margin:0}
+  .flip{display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--hair);
+    border-radius:12px; overflow:hidden; margin:0 0 14px}
+  @media(max-width:600px){.flip{grid-template-columns:1fr}}
+  .flip div{padding:14px 16px; background:var(--panel)}
+  .flip .l{border-right:1px solid var(--hair)}
+  @media(max-width:600px){.flip .l{border-right:0; border-bottom:1px solid var(--hair)}}
+  .flip .h{font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--faint); margin:0 0 7px}
+  .flip .v{font-size:13.5px; margin:0; color:var(--muted)}
+  .flip .v b{color:var(--ink)}
+  .flow{font-family:var(--mono); font-size:12.5px; line-height:1.85; color:var(--muted);
+    margin:0; white-space:pre; overflow-x:auto}
+  .flow b{color:var(--accent); font-weight:600}
+  ul{margin:0 0 12px; padding-left:20px; color:var(--muted); font-size:14.5px}
+  li{margin:0 0 7px}
+  li b{color:var(--ink); font-weight:600}
+  .close{margin-top:30px; padding:18px 22px; background:var(--panel); border:1px solid var(--hair);
+    border-left:3px solid var(--accent); border-radius:12px; font-size:14.5px; color:var(--muted)}
+  .close b{color:var(--ink)}
+  .status{margin-top:22px; padding:16px 20px; background:var(--panel); border:1px solid var(--hair);
+    border-left:3px solid var(--warn); border-radius:12px; font-size:14px; color:var(--muted)}
+  .status b{color:var(--ink)}
+  .colophon{margin-top:26px; padding-top:16px; border-top:1px solid var(--hair);
+    font-size:12.5px; color:var(--faint)}
+  .colophon b{color:var(--muted)}
+  .colophon a{color:var(--accent)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sheet">
+    <p class="eyebrow"><b>Compliance Vine</b><span class="dot"></span>engineering memo<span class="dot"></span>agentic commerce<span class="dot"></span><a href="./">five nines</a><span class="dot"></span><a href="platform.html">platform</a><span class="dot"></span><a href="testing.html">testing</a><span class="dot"></span><a href="failsafe.html">fail-safe</a></p>
+    <h1>Before an AI recommends the bottle</h1>
+    <p class="dek">The <a href="platform.html">platform memo</a> says CV Live is the bouncer at checkout. This one is about a question that arrives <b>earlier</b> — from a shopping agent, before a human ever sees the cart — and what has to change when the thing asking is a machine with no human behind it.</p>
+
+    <h2>The problem in one paragraph</h2>
+    <div class="card why">
+      <p class="lede" style="margin:0">Wine is one of the few categories where a <b>good recommendation can be unlawful to fulfill</b>. A shopping agent that reads a catalogue cannot tell. The answer is not a property of the bottle — it is a property of the seller, the destination below state level, and the buyer's purchase history over a rolling period. All three are invisible to the agent, and getting it wrong costs a winery its license, not a return.</p>
+    </div>
+
+    <h2>Three things an agent cannot infer</h2>
+    <div class="grid3">
+      <div class="p"><p class="k">The seller</p><p class="d">Licenses are held per-winery, per-state. Two wineries listing the same bottle can have opposite answers for the same address.</p></div>
+      <div class="p"><p class="k">The destination, below state level</p><p class="d">Dry counties and carrier coverage resolve at ZIP and FIPS, not at the state. A state-level answer is not precise enough to act on.</p></div>
+      <div class="p"><p class="k">The buyer's history</p><p class="d">Most states cap what one household may receive in a rolling period — counting purchases the agent never saw.</p></div>
+    </div>
+    <p style="margin-top:14px; font-size:14.5px; color:var(--muted); max-width:62ch">A generic “does wine ship to Virginia” lookup answers none of them. An agent that substitutes one for the other is wrong in a way that reaches a regulator.</p>
+
+    <h2>What changes when there is no human backstop</h2>
+    <p style="font-size:14.5px; color:var(--muted); max-width:62ch">Our checkout-time engine has a documented, deliberate posture: <a href="failsafe.html">fail open</a>. If the engine times out, the order proceeds flagged for review. That is correct — a merchant should never lose revenue to <i>our</i> downtime, and a person reviews the order before anything ships.</p>
+    <p style="font-size:14.5px; color:var(--muted); max-width:62ch">Move that same behaviour in front of an agent and it stops being safe. There is no review queue. There is no person. A permissive answer during an outage becomes a recommendation to buy a bottle that cannot lawfully be delivered, and nothing downstream catches it.</p>
+    <p style="font-size:14.5px; color:var(--muted); max-width:62ch"><b style="color:var(--ink)">So two behaviours invert.</b> Not because the old ones were wrong, but because the assumption underneath them — that a human sees the result — no longer holds.</p>
+
+    <div class="flip">
+      <div class="l"><p class="h">At checkout (order exists)</p><p class="v">A missing age signal is a <b>hard block</b>. The order exists; the safe move is to stop it.</p></div>
+      <div><p class="h">Pre-sale (no order yet)</p><p class="v">A missing age signal is <b>requires_buyer_input</b>. The honest answer is “not yet”, not “no”.</p></div>
+    </div>
+    <div class="flip">
+      <div class="l"><p class="h">At checkout (human reviews)</p><p class="v">A timeout returns a permissive verdict flagged for review. Revenue is never blocked by our downtime.</p></div>
+      <div><p class="h">Pre-sale (nobody reviews)</p><p class="v">A timeout returns <b>retry</b> — the absence of a verdict. There is no path from a failed dependency to a positive answer.</p></div>
+    </div>
+
+    <h2>One status. Five values. Nothing to interpret.</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Status</th><th>Meaning</th><th>What an agent may say</th></tr></thead>
+        <tbody>
+          <tr><td class="s"><code>eligible</code></td><td>Every check passed for this seller, destination and basket.</td><td>“This seller can ship this to your address.”</td></tr>
+          <tr><td class="s"><code>ineligible</code></td><td>A check failed in a way the buyer cannot resolve.</td><td>“This seller can’t ship this to your address.”</td></tr>
+          <tr><td class="s"><code>requires_buyer_input</code></td><td>Possible, but something is missing from the buyer.</td><td>“You’ll need to verify your age before this can ship.”</td></tr>
+          <tr><td class="s"><code>requires_merchant_review</code></td><td>The decision needs a human at the merchant.</td><td>“The seller needs to review this before it can proceed.”</td></tr>
+          <tr><td class="s"><code>retry</code></td><td><b>No decision was reached.</b> Transient condition upstream.</td><td>“I couldn’t check that just now — let me try again.”</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>The two rules that actually prevent harm</h2>
+    <ul>
+      <li><b>Never present <code>retry</code> as a compliance outcome.</b> It carries no information about whether the sale is permitted. <code>checks_performed</code> comes back empty because nothing was evaluated. An agent that renders it as “this wine can’t ship to you” has invented a legal conclusion out of an outage.</li>
+      <li><b>Never generalise a seller-specific answer.</b> <code>ineligible</code> for one winery says nothing about another winery shipping to the same address. An agent that turns one seller’s missing license into “wine can’t be shipped to Kansas” has misinformed the shopper, misstated the state’s law, and suppressed every compliant seller in the results. This is the most likely integration bug, and it is why the reason codes are named <code>seller_*</code> and <code>destination_*</code> rather than being flat.</li>
+    </ul>
+
+    <h2>Four invariants</h2>
+    <div class="inv">
+      <div class="a"><p class="n">01</p><p class="k">An outage never returns eligible.</p><p class="d">Timeouts and upstream failures return <code>retry</code>. There is no code path from a failed dependency to a positive answer, and the mapper refuses a timeout outright rather than letting one become a verdict.</p></div>
+      <div class="a"><p class="n">02</p><p class="k">A missing age signal never returns eligible.</p><p class="d">It returns <code>requires_buyer_input</code> with the action that would resolve it. An absent, malformed, or expired token all degrade the same way — never a silent pass.</p></div>
+      <div class="a"><p class="n">03</p><p class="k">The check is read-only.</p><p class="d">It never places an order, reserves inventory, takes payment, or becomes merchant of record. Validation, fulfillment, tax, risk and acceptance stay with the merchant.</p></div>
+      <div class="a"><p class="n">04</p><p class="k">A decision is a snapshot.</p><p class="d">Licenses lapse, states amend rules, and a buyer’s rolling volume moves with every other purchase. <code>expires_at</code> is binding, and checkout re-verifies.</p></div>
+    </div>
+
+    <h2>Where it sits</h2>
+    <div class="card">
+      <p class="flow">agent builds cart
+      │
+      ▼
+<b>POST /api/v1/presale/verify</b>        ← read-only, no order exists yet
+      │
+      ├── ineligible ──────────► do not offer this item from this seller
+      ├── requires_buyer_input ─► collect the missing signal, verify again
+      ├── retry ───────────────► back off; state nothing about eligibility
+      └── eligible ────────────► proceed to the merchant’s checkout
+                                       │
+                                       ▼
+                       merchant creates the order, runs its own
+                       checkout-time compliance check, takes payment,
+                       and fulfills — <b>as merchant of record</b></p>
+    </div>
+    <p style="margin-top:14px; font-size:14.5px; color:var(--muted); max-width:62ch">The pre-sale call informs the agent. It does not authorise anything, and it moves no responsibility off the merchant — which is also how the major agentic-commerce protocols allocate it. Joy of Wine Company is never a party to the transaction.</p>
+
+    <h2>Privacy: what the request refuses to carry</h2>
+    <ul>
+      <li><b>No email address.</b> A pre-sale query happens before a customer exists. Accepting an address would mean receiving personal data for a sale that may never occur, from a party that is not the merchant.</li>
+      <li><b>No date of birth.</b> Age verification travels as an opaque token. This mirrors what the service already stores at checkout — a verification result and its method, never the underlying date.</li>
+      <li><b>No account identifier.</b> The authorized account comes from the credential. A body-supplied account id is an authorization bypass waiting for the day someone forgets to cross-check it, so the field does not exist.</li>
+    </ul>
+
+    <h2>Testing it</h2>
+    <p style="font-size:14.5px; color:var(--muted); max-width:62ch">Two different things need testing, and they fail differently. The endpoint is deterministic — fixture in, status out, five golden cases plus explicit tests for each invariant above. The <i>agent</i> is not. An endpoint that is perfectly correct and an agent that paraphrases <code>retry</code> as “this wine can’t ship to you” still leaves a shopper holding something false.</p>
+    <p style="font-size:14.5px; color:var(--muted); max-width:62ch">So the eval suite scores what the agent <b>says</b>, given a fixed response — including adversarial cases: a multi-seller basket where one seller is eligible and one is not, three retries in a row, and an <code>ineligible</code> with no remedy attached, where the failure mode is an agent inventing one. The same discipline as <a href="testing.html">how we test the compliance engine</a>, pointed at language instead of logic.</p>
+
+    <div class="status"><b>Status: the contract is published; the endpoint is not built.</b> <code>POST /api/v1/presale/verify</code> is not deployed, and the OpenAPI document deliberately declares no server — there is nothing to call, and a placeholder would only invite requests that cannot be served. Publishing in this order is the point: a contract is cheapest to correct before there is an implementation defending it. If you are integrating agentic checkout for alcohol and something here is wrong, that is the most useful thing you can tell us.</div>
+
+    <div class="close">The checkout question and the pre-sale question are the same question, asked at different times: <b>“can this bottle legally ship here?”</b> What changes is who is listening. A person can hold “I’m not sure yet”. A machine will round it to yes or no — so the contract has to make <b>“I don’t know”</b> a first-class answer that cannot be mistaken for either.</div>
+
+    <div class="colophon"><b>Compliance Vine</b> · Joy of Wine Company · August 2026 · companion pages: <a href="./">Distance to Five Nines</a> · <a href="platform.html">platform architecture</a> · <a href="testing.html">how we test</a> · <a href="failsafe.html">fail-safe by design</a>. Machine-readable versions of this memo and the full contract: <a href="agentic-commerce.md">agentic-commerce.md</a> · <a href="docs/presale-verification.md">the contract</a> · <a href="examples/">worked examples</a> · <a href="llms.txt">llms.txt</a>. Specific tooling, endpoints, and customer details are omitted by design.</div>
+  </div>
+</div>
+</body>
+</html>

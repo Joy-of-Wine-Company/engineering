@@ -1,0 +1,31 @@
+{
+  "$comment": "INVERSION 1. The enforcement API treats unverified age as a hard block because an order already exists by then. Pre-sale is earlier, where the honest answer is 'not yet'.",
+  "case": "age-required",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/presale/verify",
+    "headers": { "Authorization": "Bearer cvl_sk_REDACTED", "Content-Type": "application/json" },
+    "body": {
+      "seller_ref": "sel_9fbc2a41",
+      "destination": { "country": "US", "state": "VA", "postal_code": "23454" },
+      "items": [{ "sku": "JOW-CAB-2021", "quantity": 2 }]
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "decision_id": "dec_01J8XQ6R1W9NB",
+      "status": "requires_buyer_input",
+      "reason_codes": ["age_verification_required"],
+      "next_actions": [
+        { "type": "collect_age_verification", "description": "Complete age verification for the buyer, then re-verify with the resulting token." }
+      ],
+      "checks_performed": ["state_allowed", "license_valid", "age_verified", "volume_limit", "carrier_allowed", "dry_county"],
+      "rule_version": { "destination": "VA", "version": "2026-07-01" },
+      "checked_at": "2026-08-04T14:25:40Z",
+      "expires_at": "2026-08-04T14:40:40Z"
+    }
+  },
+  "agent_may_say": "You'll need to verify your age before this can ship.",
+  "agent_must_not_say": "This can't be shipped. — it can, once the step is completed. 'Not yet' is not 'no'."
+}

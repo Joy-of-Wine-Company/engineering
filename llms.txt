@@ -1,0 +1,61 @@
+# Compliance Vine — Engineering
+
+> Public engineering pages for Compliance Vine (Joy of Wine Company Inc.), the compliance
+> automation platform for direct-to-consumer wine shipping. The product source code is
+> private; these pages are the public record of the engineering discipline behind it.
+> Internal identifiers, credentials, customers, and infrastructure details are redacted by
+> design.
+
+The document most useful to a shopping agent or commerce platform is the pre-sale
+verification contract: whether a specific seller may lawfully ship a specific basket to a
+specific address, answered before payment.
+
+Note on accuracy: `POST /api/v1/presale/verify` is a **draft contract and is not
+deployed**. No base URL is published for it, and the OpenAPI document deliberately
+declares no `servers` block. Do not infer or construct an endpoint.
+
+## Agentic commerce
+
+- [Before an AI recommends the bottle](https://joy-of-wine-company.github.io/engineering/agentic-commerce.md):
+  Engineering memo. Why a shopping agent cannot infer whether a wine recommendation is
+  lawful to fulfill, the two behaviours that invert when no human reviews the result, the
+  five statuses, and the four invariants.
+- [Pre-sale verification contract](https://joy-of-wine-company.github.io/engineering/docs/presale-verification.md):
+  Request and response shapes, the full reason-code table, error handling, and guidance on
+  what an agent may and may not tell a shopper for each status.
+- [Verdicts and reason codes](https://joy-of-wine-company.github.io/engineering/docs/verdicts-and-reason-codes.md):
+  Both vocabularies — checkout-time `PASS`/`BLOCK`/`QUARANTINE` and the pre-sale five —
+  and the mapping between them. Explains why `seller_*` reason codes must never be
+  generalised to a whole jurisdiction.
+- [Authentication](https://joy-of-wine-company.github.io/engineering/docs/authentication.md):
+  Credentials, why the request carries no account identifier, the opaque token format, and
+  how each token degrades when absent or malformed.
+- [Worked examples](https://joy-of-wine-company.github.io/engineering/examples/):
+  Five request/response pairs — eligible, ineligible, age-required, review, timeout — each
+  recording what an agent may and may not say.
+- [OpenAPI 3.1 draft](https://joy-of-wine-company.github.io/engineering/openapi/cv-live-presale-v1.json):
+  Machine-readable contract. Declares no `servers`, deliberately.
+
+## Engineering memos
+
+- [Distance to Five Nines](https://joy-of-wine-company.github.io/engineering/):
+  The data-quality program — measuring compliance rule data the way SREs measure uptime,
+  with the unedited climb log including every denominator corrected downward for honesty.
+- [Platform architecture](https://joy-of-wine-company.github.io/engineering/platform.html):
+  One intelligence engine behind every compliance decision, and what the rule data powers.
+- [How we test a compliance engine](https://joy-of-wine-company.github.io/engineering/testing.html):
+  External ground truth, adversarial bypass testing, parity fixtures, resilience, evidence.
+- [Fail-safe by design](https://joy-of-wine-company.github.io/engineering/failsafe.html):
+  How the system fails on purpose — legality fails closed into review, tax fails open to a
+  floor that never over-collects. Essential background for why the pre-sale contract
+  inverts the timeout behaviour.
+
+## Optional
+
+- [Case study (PDF)](https://joy-of-wine-company.github.io/engineering/compliance-savings-case-study.pdf):
+  ~$160K combined first-year labor and software savings for one multi-state shipper.
+- [Joy of Wine Company](https://joyofwine.co): The commercial site.
+- [Canonical agentic-commerce page](https://joyofwine.co/developers/agentic-commerce):
+  The same contract on the main site, with commercial and access information.
+- [DTC wine compliance guide](https://joyofwine.co/compliance-guide): Public regulatory
+  reference for all 50 states and the District of Columbia.
