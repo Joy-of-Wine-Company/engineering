@@ -271,16 +271,31 @@
             }
           },
           "422": {
-            "description": "Understood but not processable — unsupported country, malformed postal code. Do not retry unchanged.",
+            "description": "Understood but not processable. Do not retry unchanged.\n\nTwo codes share this status:\n\n- `UNPROCESSABLE_REQUEST` — the request itself is malformed (unsupported country, bad postal code, unknown field).\n- `INVALID_BUYER_TOKEN` — `buyer_token` failed verification. Rejected rather than ignored: silently dropping it would evaluate the rolling volume limit against an empty purchase history and bias the answer toward an optimistic `eligible`, with nothing in the response to show the degradation happened. A malformed `age_verification_token`, by contrast, degrades quietly to `requires_buyer_input`, which is still a true and actionable answer.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "error": {
-                    "code": "UNPROCESSABLE_REQUEST",
-                    "message": "destination.country must be 'US' in v1."
+                "examples": {
+                  "unprocessableRequest": {
+                    "summary": "Malformed request",
+                    "value": {
+                      "error": {
+                        "code": "UNPROCESSABLE_REQUEST",
+                        "message": "destination.country must be 'US' in v1."
+                      }
+                    }
+                  },
+                  "invalidBuyerToken": {
+                    "summary": "buyer_token failed verification",
+                    "description": "Re-mint the token, or omit it and accept a basket-only volume evaluation.",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_BUYER_TOKEN",
+                        "message": "buyer_token failed verification."
+                      }
+                    }
                   }
                 }
               }
@@ -351,7 +366,7 @@
           },
           "buyer_token": {
             "type": "string",
-            "description": "Opaque. Lets the rolling volume limit account for this buyer's prior purchases. Omitting it evaluates volume on this basket alone, which can produce an optimistic `eligible`.",
+            "description": "Opaque. Lets the rolling volume limit account for this buyer's prior purchases. Omitting it evaluates volume on this basket alone, which can produce an optimistic `eligible`. A malformed token is rejected with 422 `INVALID_BUYER_TOKEN` rather than ignored.",
             "examples": ["bt_opaque_value"]
           },
           "age_verification_token": {

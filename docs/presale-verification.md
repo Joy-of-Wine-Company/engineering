@@ -74,7 +74,7 @@ Content-Type: application/json
 | `items[].volume_ml` | no | Defaults to `750`. Drives volume-limit arithmetic. |
 | `items[].abv` | no | Percent by volume. |
 | `items[].category` | no | `still`, `sparkling`, `dessert`, `fortified`, `cider`. |
-| `buyer_token` | no | Opaque. Lets the rolling volume limit account for this buyer's prior purchases. Omitting it means volume is evaluated on this basket alone, which can produce an optimistic `eligible`. |
+| `buyer_token` | no | Opaque. Lets the rolling volume limit account for this buyer's prior purchases. Omitting it means volume is evaluated on this basket alone, which can produce an optimistic `eligible`. A **malformed** token is rejected with `422 INVALID_BUYER_TOKEN` rather than ignored — see [Errors](#errors). |
 | `age_verification_token` | no | Opaque proof that age verification has been completed. See [Age verification](#age-verification). |
 
 ### What the request must not contain
@@ -282,16 +282,35 @@ a buyer's rolling volume changes with every other purchase they make.
 
 ## Errors
 
-| Code | Meaning | Agent should |
-|---|---|---|
-| `401` | Missing or invalid credential. | Stop. Do not retry. |
-| `402` | Account past due or suspended. | Stop. Surface to the integrator, not the shopper. |
-| `422` | Request understood but not processable — unsupported country, malformed postal code. | Fix the request. Do not retry unchanged. |
-| `429` | Rate limited. Honours `Retry-After`. | Back off. |
-| `5xx` | Server error. | Treat exactly as `retry`. Never as an outcome. |
+| HTTP | `error.code` | Meaning | Agent should |
+|---|---|---|---|
+| `401` | `UNAUTHORIZED` | Missing or invalid credential. | Stop. Do not retry. |
+| `402` | `PAYMENT_REQUIRED` | Account past due or suspended. | Stop. Surface to the integrator, not the shopper. |
+| `422` | `UNPROCESSABLE_REQUEST` | Understood but not processable — unsupported country, malformed postal code. | Fix the request. Do not retry unchanged. |
+| `422` | `INVALID_BUYER_TOKEN` | `buyer_token` failed verification. | Re-mint the token, or omit it and accept a basket-only volume evaluation. |
+| `429` | — | Rate limited. Honours `Retry-After`. | Back off. |
+| `5xx` | — | Server error. | Treat exactly as `retry`. Never as an outcome. |
 
 Error bodies carry `{ "error": { "code": "...", "message": "..." } }`. The `code` is
 stable; the `message` is not, and should not be parsed.
+
+### Why a bad `buyer_token` is loud and a bad age token is quiet
+
+The two tokens fail differently on purpose.
+
+A malformed `age_verification_token` degrades to `requires_buyer_input`. That is a real,
+actionable answer: age is not verified, and the buyer can fix it. Nothing is lost by
+treating a broken token the same as an absent one.
+
+A malformed `buyer_token` is rejected outright. Silently ignoring it would evaluate the
+rolling volume limit against an empty purchase history and bias the answer toward an
+optimistic `eligible` — a wrong answer that looks exactly like a right one, with nothing
+in the response to indicate the degradation happened. An error you can see beats a
+number you cannot check.
+
+Omitting `buyer_token` entirely remains legitimate. The contract already warns that doing
+so evaluates volume on the basket alone. The difference is that omission is a choice you
+made, and a malformed token is a bug you have not noticed yet.
 
 ---
 
