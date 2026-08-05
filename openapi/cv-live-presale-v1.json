@@ -1,0 +1,577 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Compliance Vine LIVE — Pre-sale Verification",
+    "version": "1.0.0-draft",
+    "summary": "Seller-specific alcohol compliance decision before payment.",
+    "description": "Read-only pre-sale compliance verification for direct-to-consumer wine.\n\n## Status: draft, not deployed\n\n`POST /api/v1/presale/verify` **is not yet deployed**. This document is published so the contract can be reviewed before it is built. No `servers` block is declared, deliberately — there is no address to call, and publishing a placeholder would invite requests that cannot be served.\n\nAccess is private beta. Credentials are not issued self-serve. Request access at info@joyofwine.co.\n\n## Scope\n\nThe endpoint answers one question: given a specific seller, a destination, and a basket, may this alcohol sale proceed? It is read-only. It never creates an order, reserves inventory, takes payment, calculates tax, or becomes merchant of record. Order creation, payment, fulfillment, tax, risk, and acceptance remain with the merchant.\n\n## Invariants\n\n1. An outage never returns `eligible`. Timeouts and upstream failures return `retry`, which is the absence of a verdict rather than a verdict.\n2. A missing age signal never returns `eligible`. It returns `requires_buyer_input`.\n3. The endpoint is read-only.\n4. A decision is a snapshot, valid until `expires_at` and no longer.\n\n## When this ships\n\nThis file is a hand-authored draft contract. Once the endpoint is deployed, the published specification is generated from the service's route schemas rather than maintained here by hand, so that the contract cannot drift from the implementation.\n\n## Companion documents\n\n- Agent contract, semantics, and safe-paraphrase guidance: https://joyofwine.co/developers/presale-verification.md\n- Canonical page: https://joyofwine.co/developers/agentic-commerce",
+    "termsOfService": "https://joyofwine.co/terms",
+    "contact": {
+      "name": "Joy of Wine Company",
+      "email": "info@joyofwine.co",
+      "url": "https://joyofwine.co/developers/agentic-commerce"
+    },
+    "x-status": "draft",
+    "x-availability": "private-beta",
+    "x-not-deployed": true
+  },
+  "externalDocs": {
+    "description": "Pre-sale verification agent contract",
+    "url": "https://joyofwine.co/developers/presale-verification.md"
+  },
+  "tags": [
+    {
+      "name": "Pre-sale",
+      "description": "Read-only eligibility decisions taken before an order exists."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/presale/verify": {
+      "post": {
+        "operationId": "verifyPresale",
+        "tags": ["Pre-sale"],
+        "summary": "Verify whether an alcohol sale may proceed",
+        "description": "Returns a seller-specific compliance decision for a destination and basket, before payment.\n\nThe authorized account is derived from the bearer credential. There is deliberately no account or merchant identifier in the request body.\n\nBranch only on `status`. A `retry` carries no information about eligibility and must never be surfaced to a shopper as a compliance outcome.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresaleVerifyRequest"
+              },
+              "examples": {
+                "minimal": {
+                  "summary": "Minimum viable request",
+                  "description": "No buyer token, so the rolling volume limit is evaluated on this basket alone and may return an optimistic `eligible`.",
+                  "value": {
+                    "seller_ref": "sel_9fbc2a41",
+                    "destination": {
+                      "country": "US",
+                      "state": "VA",
+                      "postal_code": "23454"
+                    },
+                    "items": [
+                      {
+                        "sku": "JOW-CAB-2021",
+                        "quantity": 2
+                      }
+                    ]
+                  }
+                },
+                "withTokens": {
+                  "summary": "With buyer and age-verification tokens",
+                  "value": {
+                    "seller_ref": "sel_9fbc2a41",
+                    "destination": {
+                      "country": "US",
+                      "state": "VA",
+                      "postal_code": "23454"
+                    },
+                    "items": [
+                      {
+                        "sku": "JOW-CAB-2021",
+                        "quantity": 2,
+                        "volume_ml": 750,
+                        "abv": 13.5,
+                        "category": "still"
+                      }
+                    ],
+                    "buyer_token": "bt_opaque_value",
+                    "age_verification_token": "avt_opaque_value"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A decision was reached, or a `retry` indicating that none could be.",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Correlation identifier for this request.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresaleDecision"
+                },
+                "examples": {
+                  "eligible": {
+                    "summary": "eligible — every check passed",
+                    "value": {
+                      "decision_id": "dec_01J8XQ4M2N7VZ",
+                      "status": "eligible",
+                      "reason_codes": [],
+                      "next_actions": [],
+                      "checks_performed": [
+                        "state_allowed",
+                        "license_valid",
+                        "age_verified",
+                        "volume_limit",
+                        "carrier_allowed",
+                        "dry_county"
+                      ],
+                      "rule_version": {
+                        "destination": "VA",
+                        "version": "2026-07-01"
+                      },
+                      "checked_at": "2026-08-04T14:22:03Z",
+                      "expires_at": "2026-08-04T14:37:03Z"
+                    }
+                  },
+                  "ineligible": {
+                    "summary": "ineligible — destination prohibits DTC entirely",
+                    "value": {
+                      "decision_id": "dec_01J8XQ5P8T2KD",
+                      "status": "ineligible",
+                      "reason_codes": ["destination_dtc_prohibited"],
+                      "next_actions": [],
+                      "checks_performed": [
+                        "state_allowed",
+                        "license_valid",
+                        "age_verified",
+                        "volume_limit",
+                        "carrier_allowed",
+                        "dry_county"
+                      ],
+                      "rule_version": {
+                        "destination": "UT",
+                        "version": "2026-07-01"
+                      },
+                      "checked_at": "2026-08-04T14:24:11Z",
+                      "expires_at": "2026-08-04T14:39:11Z"
+                    }
+                  },
+                  "requiresBuyerInput": {
+                    "summary": "requires_buyer_input — age verification missing",
+                    "description": "Not a refusal. The enforcement API treats unverified age as a hard block because an order already exists by then; pre-sale is earlier, where the honest answer is 'not yet'.",
+                    "value": {
+                      "decision_id": "dec_01J8XQ6R1W9NB",
+                      "status": "requires_buyer_input",
+                      "reason_codes": ["age_verification_required"],
+                      "next_actions": [
+                        {
+                          "type": "collect_age_verification",
+                          "description": "Complete age verification for the buyer, then re-verify with the resulting token."
+                        }
+                      ],
+                      "checks_performed": [
+                        "state_allowed",
+                        "license_valid",
+                        "age_verified",
+                        "volume_limit",
+                        "carrier_allowed",
+                        "dry_county"
+                      ],
+                      "rule_version": {
+                        "destination": "VA",
+                        "version": "2026-07-01"
+                      },
+                      "checked_at": "2026-08-04T14:25:40Z",
+                      "expires_at": "2026-08-04T14:40:40Z"
+                    }
+                  },
+                  "volumeExceeded": {
+                    "summary": "ineligible — rolling volume limit, with a smaller basket suggested",
+                    "value": {
+                      "decision_id": "dec_01J8XQ7T4Y6PC",
+                      "status": "ineligible",
+                      "reason_codes": ["volume_limit_exceeded"],
+                      "next_actions": [
+                        {
+                          "type": "reduce_quantity",
+                          "description": "The destination's rolling limit allows fewer bottles for this buyer.",
+                          "max_quantity": 4
+                        }
+                      ],
+                      "checks_performed": [
+                        "state_allowed",
+                        "license_valid",
+                        "age_verified",
+                        "volume_limit",
+                        "carrier_allowed",
+                        "dry_county"
+                      ],
+                      "rule_version": {
+                        "destination": "VA",
+                        "version": "2026-07-01"
+                      },
+                      "checked_at": "2026-08-04T14:26:02Z",
+                      "expires_at": "2026-08-04T14:41:02Z"
+                    }
+                  },
+                  "retry": {
+                    "summary": "retry — no decision was reached",
+                    "description": "`checks_performed` is empty. Nothing was evaluated. This must never be paraphrased as an eligibility outcome.",
+                    "value": {
+                      "decision_id": "dec_01J8XQ8V7Z3RF",
+                      "status": "retry",
+                      "reason_codes": ["upstream_timeout"],
+                      "next_actions": [
+                        {
+                          "type": "retry_after",
+                          "description": "A dependency did not answer in time. No checks completed.",
+                          "retry_after_seconds": 2
+                        }
+                      ],
+                      "checks_performed": [],
+                      "checked_at": "2026-08-04T14:27:19Z",
+                      "expires_at": "2026-08-04T14:27:19Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credential. Do not retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Missing or invalid API key."
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Account past due or suspended. Surface to the integrator, not the shopper.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "PAYMENT_REQUIRED",
+                    "message": "Account is past due."
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Understood but not processable — unsupported country, malformed postal code. Do not retry unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "UNPROCESSABLE_REQUEST",
+                    "message": "destination.country must be 'US' in v1."
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error. Treat exactly as `retry` — never as an outcome.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The authorized account is derived from this credential. There is no account identifier in the request body, deliberately — a body-supplied account would be an authorization bypass."
+      }
+    },
+    "schemas": {
+      "PresaleVerifyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seller_ref", "destination", "items"],
+        "description": "Contains no email address, no date of birth, and no account identifier.",
+        "properties": {
+          "seller_ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque identifier for a seller within the authorized account.",
+            "examples": ["sel_9fbc2a41"]
+          },
+          "destination": {
+            "$ref": "#/components/schemas/Destination"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/LineItem"
+            }
+          },
+          "buyer_token": {
+            "type": "string",
+            "description": "Opaque. Lets the rolling volume limit account for this buyer's prior purchases. Omitting it evaluates volume on this basket alone, which can produce an optimistic `eligible`.",
+            "examples": ["bt_opaque_value"]
+          },
+          "age_verification_token": {
+            "type": "string",
+            "description": "Opaque proof that age verification has been completed. A raw date of birth is never accepted. Absent, malformed, or expired tokens produce `requires_buyer_input`, never a silent pass.",
+            "examples": ["avt_opaque_value"]
+          }
+        }
+      },
+      "Destination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["country", "state", "postal_code"],
+        "properties": {
+          "country": {
+            "type": "string",
+            "enum": ["US"],
+            "description": "`US` only in v1."
+          },
+          "state": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "Two-letter code. 50 states plus DC.",
+            "examples": ["VA"]
+          },
+          "postal_code": {
+            "type": "string",
+            "pattern": "^\\d{5}(-\\d{4})?$",
+            "description": "Required because dry-jurisdiction and carrier coverage resolve below the state level.",
+            "examples": ["23454"]
+          }
+        }
+      },
+      "LineItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sku", "quantity"],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The seller's own identifier."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "volume_ml": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 750,
+            "description": "Drives volume-limit arithmetic."
+          },
+          "abv": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percent by volume."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["still", "sparkling", "dessert", "fortified", "cider"]
+          }
+        }
+      },
+      "PresaleDecision": {
+        "type": "object",
+        "required": [
+          "decision_id",
+          "status",
+          "reason_codes",
+          "checks_performed",
+          "checked_at",
+          "expires_at"
+        ],
+        "properties": {
+          "decision_id": {
+            "type": "string",
+            "description": "Stable identifier resolving to the retained decision record."
+          },
+          "status": {
+            "$ref": "#/components/schemas/PresaleStatus"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReasonCode"
+            },
+            "description": "Stable, never localised, never reworded. Present for every non-`eligible` status."
+          },
+          "next_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NextAction"
+            },
+            "description": "What would change the outcome, when anything can. Empty for terminal `ineligible`."
+          },
+          "checks_performed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckName"
+            },
+            "description": "Which checks actually ran. Names match the enforcement engine exactly, so a pre-sale decision and a checkout-time decision can be compared directly. A check absent from this list did not run and its subject was not evaluated. Empty on `retry`."
+          },
+          "rule_version": {
+            "type": "object",
+            "description": "Which version of the destination's rule set produced this decision. Absent on `retry`.",
+            "required": ["destination", "version"],
+            "properties": {
+              "destination": {
+                "type": "string",
+                "examples": ["VA"]
+              },
+              "version": {
+                "type": "string",
+                "examples": ["2026-07-01"]
+              }
+            }
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Binding. Treat the decision as stale afterwards without exception, and re-verify at checkout even inside the window. The binding decision is the one made at checkout by the merchant."
+          }
+        }
+      },
+      "PresaleStatus": {
+        "type": "string",
+        "description": "The only field an integration should branch on.\n\n- `eligible` — every check passed for this seller, destination, and basket, as of `checked_at`.\n- `ineligible` — a check failed in a way the buyer cannot resolve.\n- `requires_buyer_input` — the sale may be possible, but something is missing from the buyer.\n- `requires_merchant_review` — the decision needs a human at the merchant.\n- `retry` — no decision was reached. Not a verdict; the absence of one.",
+        "enum": [
+          "eligible",
+          "ineligible",
+          "requires_buyer_input",
+          "requires_merchant_review",
+          "retry"
+        ]
+      },
+      "CheckName": {
+        "type": "string",
+        "description": "The six checks the enforcement engine runs, named identically here.",
+        "enum": [
+          "state_allowed",
+          "license_valid",
+          "age_verified",
+          "volume_limit",
+          "carrier_allowed",
+          "dry_county"
+        ]
+      },
+      "ReasonCode": {
+        "type": "string",
+        "description": "Each code maps onto a specific engine check.\n\n- `destination_dtc_prohibited` (ineligible, state_allowed)\n- `seller_not_licensed_for_destination` (ineligible, state_allowed)\n- `seller_license_missing` (ineligible, license_valid)\n- `seller_license_expired` (ineligible, license_valid)\n- `seller_license_inactive` (ineligible, license_valid)\n- `destination_dry_jurisdiction` (ineligible, dry_county)\n- `no_carrier_coverage` (ineligible, carrier_allowed)\n- `volume_limit_exceeded` (ineligible, volume_limit)\n- `age_verification_required` (requires_buyer_input, age_verified)\n- `manual_review_required` (requires_merchant_review; reserved, not emitted in v1)\n- `upstream_timeout` (retry; no checks completed)\n- `upstream_error` (retry; no checks completed)",
+        "enum": [
+          "destination_dtc_prohibited",
+          "seller_not_licensed_for_destination",
+          "seller_license_missing",
+          "seller_license_expired",
+          "seller_license_inactive",
+          "destination_dry_jurisdiction",
+          "no_carrier_coverage",
+          "volume_limit_exceeded",
+          "age_verification_required",
+          "manual_review_required",
+          "upstream_timeout",
+          "upstream_error"
+        ]
+      },
+      "NextAction": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "collect_age_verification",
+              "reduce_quantity",
+              "retry_after",
+              "contact_merchant"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable. Not stable; do not parse."
+          },
+          "max_quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Present on `reduce_quantity` when a smaller basket would pass. Absent when no quantity would."
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Present on `retry_after`."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable. Branch on this."
+              },
+              "message": {
+                "type": "string",
+                "description": "Not stable. Do not parse."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

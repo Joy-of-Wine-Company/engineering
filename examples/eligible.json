@@ -1,0 +1,31 @@
+{
+  "$comment": "Every check passed. Note this is a snapshot: expires_at is binding and checkout re-verifies.",
+  "case": "eligible",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/presale/verify",
+    "headers": { "Authorization": "Bearer cvl_sk_REDACTED", "Content-Type": "application/json" },
+    "body": {
+      "seller_ref": "sel_9fbc2a41",
+      "destination": { "country": "US", "state": "VA", "postal_code": "23454" },
+      "items": [{ "sku": "JOW-CAB-2021", "quantity": 2, "volume_ml": 750, "abv": 13.5, "category": "still" }],
+      "buyer_token": "bt_opaque_value",
+      "age_verification_token": "avt_opaque_value"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "decision_id": "dec_01J8XQ4M2N7VZ",
+      "status": "eligible",
+      "reason_codes": [],
+      "next_actions": [],
+      "checks_performed": ["state_allowed", "license_valid", "age_verified", "volume_limit", "carrier_allowed", "dry_county"],
+      "rule_version": { "destination": "VA", "version": "2026-07-01" },
+      "checked_at": "2026-08-04T14:22:03Z",
+      "expires_at": "2026-08-04T14:37:03Z"
+    }
+  },
+  "agent_may_say": "This seller can ship this to your address.",
+  "agent_must_not_say": "Your order is confirmed. — nothing has been ordered; the call is read-only."
+}

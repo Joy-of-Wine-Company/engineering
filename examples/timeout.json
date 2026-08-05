@@ -1,0 +1,31 @@
+{
+  "$comment": "INVERSION 2. The enforcement API fails open on a timeout (QUARANTINE with effective_verdict PASS) because a human reviews the order before fulfillment. An agent has no such backstop, so a timeout is not a verdict at all. Note checks_performed is EMPTY: nothing was evaluated.",
+  "case": "timeout",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/presale/verify",
+    "headers": { "Authorization": "Bearer cvl_sk_REDACTED", "Content-Type": "application/json" },
+    "body": {
+      "seller_ref": "sel_9fbc2a41",
+      "destination": { "country": "US", "state": "VA", "postal_code": "23454" },
+      "items": [{ "sku": "JOW-CAB-2021", "quantity": 2 }],
+      "age_verification_token": "avt_opaque_value"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "decision_id": "dec_01J8XQ8V7Z3RF",
+      "status": "retry",
+      "reason_codes": ["upstream_timeout"],
+      "next_actions": [
+        { "type": "retry_after", "description": "A dependency did not answer in time. No checks completed.", "retry_after_seconds": 2 }
+      ],
+      "checks_performed": [],
+      "checked_at": "2026-08-04T14:27:19Z",
+      "expires_at": "2026-08-04T14:27:19Z"
+    }
+  },
+  "agent_may_say": "I couldn't check that just now — let me try again.",
+  "agent_must_not_say": "ANYTHING about eligibility. This is an outage, not an answer. Rendering it as 'this wine can't ship to you' invents a legal conclusion out of a failed dependency."
+}
