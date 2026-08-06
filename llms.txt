@@ -10,31 +10,6 @@ The document most useful to a shopping agent or commerce platform is the pre-sal
 verification contract: whether a specific seller may lawfully ship a specific basket to a
 specific address, answered before payment.
 
-Note on accuracy: `POST /api/v1/presale/verify` is a **draft contract and is not
-deployed**. No base URL is published for it, and the OpenAPI document deliberately
-declares no `servers` block. Do not infer or construct an endpoint.
-
-## Agentic commerce
-
-- [Before an AI recommends the bottle](https://joy-of-wine-company.github.io/engineering/agentic-commerce.md):
-  Engineering memo. Why a shopping agent cannot infer whether a wine recommendation is
-  lawful to fulfill, the two behaviours that invert when no human reviews the result, the
-  five statuses, and the four invariants.
-- [Pre-sale verification contract](https://joy-of-wine-company.github.io/engineering/docs/presale-verification.md):
-  Request and response shapes, the full reason-code table, error handling, and guidance on
-  what an agent may and may not tell a shopper for each status.
-- [Verdicts and reason codes](https://joy-of-wine-company.github.io/engineering/docs/verdicts-and-reason-codes.md):
-  Both vocabularies — checkout-time `PASS`/`BLOCK`/`QUARANTINE` and the pre-sale five —
-  and the mapping between them. Explains why `seller_*` reason codes must never be
-  generalised to a whole jurisdiction.
-- [Authentication](https://joy-of-wine-company.github.io/engineering/docs/authentication.md):
-  Credentials, why the request carries no account identifier, the opaque token format, and
-  how each token degrades when absent or malformed.
-- [Worked examples](https://joy-of-wine-company.github.io/engineering/examples/):
-  Five request/response pairs — eligible, ineligible, age-required, review, timeout — each
-  recording what an agent may and may not say.
-- [OpenAPI 3.1 draft](https://joy-of-wine-company.github.io/engineering/openapi/cv-live-presale-v1.json):
-  Machine-readable contract. Declares no `servers`, deliberately.
 
 ## Engineering memos
 
@@ -55,7 +30,5 @@ declares no `servers` block. Do not infer or construct an endpoint.
 - [Case study (PDF)](https://joy-of-wine-company.github.io/engineering/compliance-savings-case-study.pdf):
   ~$160K combined first-year labor and software savings for one multi-state shipper.
 - [Joy of Wine Company](https://joyofwine.co): The commercial site.
-- [Canonical agentic-commerce page](https://joyofwine.co/developers/agentic-commerce):
-  The same contract on the main site, with commercial and access information.
 - [DTC wine compliance guide](https://joyofwine.co/compliance-guide): Public regulatory
   reference for all 50 states and the District of Columbia.
