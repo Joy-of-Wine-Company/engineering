@@ -167,9 +167,9 @@
 <body>
 <div class="wrap">
   <div class="sheet">
-    <p class="eyebrow"><b>engineering memo</b><span class="dot"></span>rule data @ <b>77883c1</b><span class="dot"></span>2026-07-23</p>
+    <p class="eyebrow"><b>engineering memo</b><span class="dot"></span>rule data @ <b>5c7a460</b><span class="dot"></span>2026-08-07</p>
     <h1>Compliance Vine</h1>
-    <div class="colophon" style="margin:0 0 22px; padding:0 0 14px; border-top:0; border-bottom:1px solid var(--hair)"><b>Compliance Vine</b> · an engineering memo from the compliance-sync rules-data project · Joy of Wine Company · Christopher Anderson · July 2026. The underlying repository is private; this memo is the public record of the data-quality program. Internal identifiers, credentials, and infrastructure details have been redacted; every metric, date, and delta is as recorded. Companion pieces: <a href="platform.html" style="color:var(--accent)">the platform architecture</a> (what this data powers) · <a href="testing.html" style="color:var(--accent)">how we test a compliance engine</a> · <a href="failsafe.html" style="color:var(--accent)">fail-safe by design</a> · <a href="compliance-savings-case-study.pdf" style="color:var(--accent)">customer case study (PDF)</a> — ~$160K first-year savings, 15+ months in production.</div>
+    <div class="colophon" style="margin:0 0 22px; padding:0 0 14px; border-top:0; border-bottom:1px solid var(--hair)"><b>Compliance Vine</b> · an engineering memo from the compliance-sync rules-data project · Joy of Wine Company · Christopher Anderson · July 2026. The underlying repository is private; this memo is the public record of the data-quality program. Internal identifiers, credentials, and infrastructure details have been redacted; every metric, date, and delta is as recorded. Companion pieces: <a href="platform.html" style="color:var(--accent)">the platform architecture</a> (what this data powers) · <a href="testing.html" style="color:var(--accent)">how we test a compliance engine</a> · <a href="failsafe.html" style="color:var(--accent)">fail-safe by design</a> · <a href="compliance-savings-case-study.pdf" style="color:var(--accent)">customer case study (PDF)</a>.</div>
     <p class="memo-title">Distance to <span class="nn">five&nbsp;nines</span></p>
     <p class="dek"><b>Where it stands:</b> legality and tax-rate presence are at <b>five nines</b> (56/56 jurisdictions). <b>Verified accuracy is 98.42%</b> — the architectural ceiling of ZIP5 resolution — and the serve-time rooftop engine that resolves below ZIP5 is <b>live in enforce</b>. <b>Independent depth, at 15/36</b> local-depth states, is the binding constraint and the current frontier. The scorecard is next; everything after it is the evidence — definitions, background, and the unedited climb log.</p>
     <div class="card">
@@ -204,10 +204,10 @@
         </div>
         <div class="row">
           <div class="rhead">
-            <div class="name">ZIP-exact granularity <small>distinct local-capable ZIP carries its own overlay · <b>72.5% raw</b> incl. jurisdictions barred from levying</small></div>
-            <div class="figs"><span class="pct">95.7%</span><span class="nines">1.37 nines</span><span class="pill warn">honest</span></div>
+            <div class="name">ZIP-exact granularity <small>distinct local-capable ZIP carries its own overlay · <b>72.1% raw</b> incl. jurisdictions barred from levying</small></div>
+            <div class="figs"><span class="pct">95.3%</span><span class="nines">1.33 nines</span><span class="pill warn">honest</span></div>
           </div>
-          <div class="track"><div class="bar warn" style="--w:95.7%"></div></div>
+          <div class="track"><div class="bar warn" style="--w:95.3%"></div></div>
         </div>
         <div class="row">
           <div class="rhead">
@@ -253,7 +253,7 @@
         <dt>Independent depth</dt>
         <dd>The binding constraint. Is our local rate <b>corroborated by a SECOND, independent government source</b> — a different agency (LA's LULSTB, AK's DCCED) or a different-product DOR table (OH's Finder, WI's county chart) — so two independent primaries must agree. Coverage says we <i>return</i> a rate; depth says we <i>know</i> it's right.</dd>
       </dl>
-      <p class="scale"><b>The scale:</b> each bar shows the plain percentage on a linear 0–100% axis, with the target line at <b>99.999% (five nines)</b>. The nines figure beside each percentage (nines = −log₁₀(1 − fraction)) tells the harder truth a linear bar hides: a bar that looks nearly full at 98.43% is still only 1.8 nines — the last fractions of a percent are where all the work lives.</p>
+      <p class="scale"><b>The scale:</b> each bar shows the plain percentage on a linear 0–100% axis, with the target line at <b>99.999% (five nines)</b>. The nines figure beside each percentage (nines = −log₁₀(1 − fraction)) tells the harder truth a linear bar hides: a bar that looks nearly full at 98.42% is still only 1.8 nines — the last fractions of a percent are where all the work lives.</p>
     </div>
     <div class="intro">
       <p><b>What this is.</b> Compliance Vine automates mandatory direct-to-consumer (DTC) wine shipping compliance — the legality rules, permits, volume caps, and state + local tax rates that determine whether an order may ship and what it owes. Wrong data here isn't a bug; it's a merchant's license. So we hold the rules engine's reference data to an infrastructure standard: we measure it the way SREs measure uptime, in <b>nines</b>.</p>
@@ -263,6 +263,11 @@
     <div class="log">
       <h2>Climb log</h2>
       <p class="sub">A snapshot every time we move the needle — newest first. Each entry is one dimension shift with its PR and metric delta. Nothing is edited out: retired levers, corrected denominators, and false alarms stay on the record.</p>
+      <div class="logrow">
+        <div class="logmeta"><span class="logdate">2026-08-07</span><span class="logref">scorecard refresh — no new climb this round</span></div>
+        <div class="logbody"><b>First refresh since the production release; nothing shipped in between moves a headline dimension, so this entry is bookkeeping, not a climb.</b> <span class="delta flat">verified accuracy 98.43% → <b>98.42%</b> (fallback 390 → 407) · granularity honest 95.7% → <b>95.3%</b> · independent depth unchanged at 15/36</span> · The work since the production release was CI, security-dependency, and deploy-pipeline hardening, plus two real data-correctness fixes that sit outside these five headline metrics — a mis-keyed excise unit that had understated one state's liability, and an open-ended prohibition date that would have kept a newly-legal state blocked past its opening day. Neither touches local tax-rate data. <b>Surfaced, not yet explained:</b> the served-fallback mix drifted since the last refresh — one large state's residue grew, one small state's lone residue ZIP resolved off the list — for a net increase, and it isn't explained by any of the rule-data changes in the window. Recorded as an open question rather than a guessed answer.</div>
+      </div>
+
       <div class="logrow">
         <div class="logmeta"><span class="logdate">2026-08-01</span><span class="logref">shipped: the production release — everything this arc built now prices live orders</span></div>
         <div class="logbody"><b>The production deploy ran and was verified against the production database itself — not the deploy logs.</b> <span class="delta up">all services on fresh builds, 100% of traffic · 30,031 exact-ZIP local tax windows live · spot checks exact in four states · caches cycled</span> · What went live as one release: the exact-ZIP local tax lane (every destination priced by its own ZIP’s dated rate windows, not a regional guess), the per-line-item tax input with Florida’s $5,000 single-item cap, the Florida double-charge fix, and the security-gate dependency fixes. Verified after cutover by reading the production database directly: a North Carolina ZIP serving its brand-new July rate change with sixteen years of history intact, a Minneapolis ZIP stacking its liquor add-on correctly, an Alaska fishing town on its summer tax window with seasonal windows laid through 2031, and the Jacksonville ZIP the new $5,000 cap prices against. Two days of work, one promotion, checked at the source of truth.</div>
@@ -504,7 +509,7 @@
         <div class="logbody"><b>Legality + tax-rate presence reach five nines.</b> <span class="delta up">both → 100.000%</span> · All 56 jurisdictions carry a DTC rule and a tax-rate record. Two of five dimensions at target.</div>
       </div>
     </div>
-    <p class="foot">nines = −log₁₀(1 − fraction), capped at 5 · source: the five-nines inventory over the canonical local-rate export · 24,863 local ZIP5 · 24,238 serving · granularity 23,004/31,923 in-universe (computed, real 5-digit ZIPs)</p>
+    <p class="foot">nines = −log₁₀(1 − fraction), capped at 5 · source: the five-nines inventory over the canonical local-rate export · 25,814 local ZIP5 · 25,407 serving · granularity 24,396/33,837 in-universe (computed, real 5-digit ZIPs)</p>
   </div>
 </div>
 </body>
